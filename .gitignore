@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# Data & artifacts
+backend/sovereign.db
+backend/uploads/
+backend/sample_annual_report.pdf
+*.db
+
+# Env
+.env
+.env.local
