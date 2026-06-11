@@ -1,0 +1,90 @@
+"use client";
+
+import { useBank } from "@/context/BankContext";
+import { Skeleton } from "@/components/ui/Skeleton";
+
+function SelectShell({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="flex items-center gap-3">
+      <span className="text-[10px] uppercase tracking-[0.25em] text-text-secondary">
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+const selectClass =
+  "sovereign-select min-w-44 border border-border bg-ink-2 px-3 py-1.5 pr-8 text-sm text-text-primary outline-none transition-colors hover:border-gold/60 focus:border-gold";
+
+export function TopBar() {
+  const { banks, bank, years, fiscalYear, setBankId, setFiscalYear, loading, error } =
+    useBank();
+
+  return (
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-ink/95 px-8 backdrop-blur">
+      <div className="text-xs uppercase tracking-[0.25em] text-text-secondary">
+        Annual Report Intelligence
+        {bank ? (
+          <span className="ml-3 text-gold">
+            · {bank.name}
+            {fiscalYear ? ` · ${fiscalYear}` : ""}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex items-center gap-6">
+        {error && banks.length === 0 ? (
+          <span
+            className="max-w-md truncate text-xs text-[#C98A8A]"
+            title={error}
+          >
+            {error}
+          </span>
+        ) : loading && banks.length === 0 ? (
+          <div className="flex items-center gap-6">
+            <Skeleton className="h-8 w-44" />
+            <Skeleton className="h-8 w-28" />
+          </div>
+        ) : (
+          <>
+            <SelectShell label="Institution">
+              <select
+                className={selectClass}
+                value={bank?.id ?? ""}
+                onChange={(e) => setBankId(Number(e.target.value))}
+              >
+                {banks.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                    {b.is_demo ? " (demo)" : ""}
+                  </option>
+                ))}
+              </select>
+            </SelectShell>
+            <SelectShell label="Fiscal Year">
+              <select
+                className={`${selectClass} min-w-28`}
+                value={fiscalYear ?? ""}
+                onChange={(e) => setFiscalYear(e.target.value)}
+                disabled={years.length === 0}
+              >
+                {[...years].reverse().map((fy) => (
+                  <option key={fy} value={fy}>
+                    {fy}
+                  </option>
+                ))}
+              </select>
+            </SelectShell>
+          </>
+        )}
+      </div>
+    </header>
+  );
+}

@@ -2,19 +2,74 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Repository Status
+## What this is
 
-This repository is a newly initialized project for a **Banking report dashboard**. As of the last update to this file, it contains no source code, build configuration, or tooling — only this file and the README.
+Sovereign — a Banking Annual Report Intelligence Platform. PDF banking
+documents → validated KPI warehouse → benchmarking/narrative analytics →
+dashboard + PDF/PPTX/Excel deliverables. Monorepo: FastAPI backend
+(`backend/`), Next.js 15 frontend (`frontend/`).
 
-## Current State
+## Commands
 
-- No package manager, build system, test framework, or linter is set up yet.
-- There are no commands to build, run, or test. Any such commands documented here would be speculative — verify the repository contents before assuming a toolchain exists.
+Backend (from `backend/`, venv at `backend/.venv`):
 
-## Guidance for Future Work
+```bash
+uv venv .venv && uv pip install -p .venv/bin/python -e ".[dev]"  # setup
+.venv/bin/python -m pytest                  # all tests (27, incl. E2E)
+.venv/bin/python -m pytest tests/test_validation.py -k roe   # single test
+.venv/bin/uvicorn app.main:app --reload --port 8000          # run API
+.venv/bin/python scripts/make_sample_pdf.py  # synthetic annual report for pipeline testing
+```
 
-When code is added to this repository:
+Frontend (from `frontend/`):
 
-1. Update this file with the actual build, test, and lint commands once a toolchain is chosen.
-2. Document the high-level architecture here as it takes shape (e.g., how report data flows from source to dashboard, where API/service boundaries live).
-3. Remove the "Repository Status" caveats above once they no longer reflect reality.
+```bash
+npm install
+npm run dev      # dev server on :3000 (expects API on :8000)
+npm run build    # production build + type-check + lint — must pass
+```
+
+First backend boot creates SQLite (`backend/sovereign.db`, gitignored) and
+seeds 4 demo banks × 3 fiscal years. Delete the file to reseed.
+
+## Architecture — what you must not break
+
+Read `docs/ARCHITECTURE.md` for rationale. The load-bearing rules:
+
+1. **`docs/API_CONTRACT.md` governs the frontend↔backend boundary.** Change
+   the contract doc first, then both sides. Frontend types in
+   `frontend/src/lib/api.ts` mirror it verbatim.
+2. **KPI semantics live ONLY in `backend/app/modules/kpi_warehouse/registry.py`**
+   (code, name, unit, direction, extraction aliases, derivation formula,
+   benchmarkable flag). To add a KPI, add one registry entry — extraction,
+   derivation, benchmarking, narrative and exports pick it up automatically.
+3. **Single calculation path.** Exports (`modules/export/`), narrative and the
+   API all read via `kpi_warehouse/service.py`. Never compute KPI values
+   inside an export or frontend component.
+4. **Every warehouse fact carries lineage** (document, page, method,
+   confidence, source text). Any new write path must populate it; the
+   dashboard's lineage drawer and the PDF appendix depend on it.
+5. **Reported values beat derived ones.** `derive_missing()` only backfills
+   gaps; divergence is flagged by validation rules, never auto-corrected.
+6. **Deterministic-first extraction.** The `LlmExtractor` seam in
+   `modules/document_intelligence/extractors.py` is intentionally a capped
+   (max confidence 0.6), disabled-by-default fallback. Don't promote LLM
+   extraction above deterministic strategies.
+7. **Module boundaries**: document_intelligence, kpi_warehouse, validation,
+   benchmarking, narrative, export are independent; cross-module imports go
+   through service/engine entry points, and the API layer (`app/api/routes.py`)
+   stays thin.
+
+## Conventions
+
+- Canonical units: ₹ crore (`inr_crore`), percent, count. Unit conversion
+  happens only in `document_intelligence/normalize.py`.
+- Validation rules are pure functions appended to `RULES` in
+  `modules/validation/engine.py`; each declares the `kpi_codes` it badges.
+- Demo/seed data is synthetic and flagged `is_demo` — never seed real banks'
+  figures.
+- Frontend design system ("Old Money") is defined as Tailwind theme tokens in
+  `frontend/src/app/globals.css` and mirrored for exports in
+  `backend/app/modules/export/theme.py`; keep them in sync.
+- Frontend data fetching is client-side only (`npm run build` must succeed
+  with no backend running).

@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@theme {
+  /* "Old Money" luxury banking palette */
+  --color-ink: #1a120b;
+  --color-ink-2: #2c1e16;
+  --color-card: #36251d;
+  --color-gold: #c7a56a;
+  --color-bronze: #9c7b4f;
+  --color-highlight: #d8c49a;
+  --color-success: #5e8b6f;
+  --color-warning: #b58a42;
+  --color-risk: #7a3e3e;
+  --color-text-primary: #f3eee7;
+  --color-text-secondary: #cfc3b0;
+  --color-border: #4b382f;
+
+  --font-serif: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-gold);
+  color: var(--color-ink);
+}
+
+/* Thin elegant scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Shimmer for loading skeletons */
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-card) 0%,
+    rgba(67, 48, 36, 0.6) 40%,
+    var(--color-card) 80%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* Engraved hairline divider with gold centre */
+.gilt-rule {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-bronze) 30%,
+    var(--color-gold) 50%,
+    var(--color-bronze) 70%,
+    transparent
+  );
+  opacity: 0.55;
+}
+
+/* Native select restyle */
+select.sovereign-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23C7A56A' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+}
