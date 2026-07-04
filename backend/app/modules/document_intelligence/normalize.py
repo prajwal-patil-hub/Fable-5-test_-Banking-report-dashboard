@@ -11,7 +11,7 @@ import re
 
 # number with optional Indian/Western grouping and decimals, optional parens for negatives
 _NUMBER = r"\(?-?[\d,]+(?:\.\d+)?\)?"
-_UNIT = r"(?:%|percent|bps|crore|crores|cr\.?|lakh|lakhs|million|mn|billion|bn)?"
+_UNIT = r"(?:%|per\s?cent|percent|bps|crore|crores|cr\.?|lakh|lakhs|million|mn|billion|bn)?"
 
 NUMBER_RE = re.compile(rf"({_NUMBER})\s*({_UNIT})", re.IGNORECASE)
 
@@ -44,7 +44,7 @@ def normalize_value(raw_number: str, raw_unit: str, target_unit: str) -> float |
     value = parse_number(raw_number)
     if value is None:
         return None
-    unit = (raw_unit or "").lower().strip()
+    unit = (raw_unit or "").lower().strip().replace(" ", "")  # "per cent" -> "percent"
 
     if target_unit == "percent":
         if unit == "bps":

@@ -70,25 +70,43 @@ class RuleBasedExtractor:
                          for s in _SENTENCE_SPLIT.split(rejoined)]
             for segment, base_confidence in segments:
                 lowered = segment.lower()
+                # One sentence often names several KPIs ("Total Deposits grew
+                # to X, of which CASA Deposits were Y — a CASA Ratio of Z%"),
+                # so every alias gets a chance — but a consumed label span
+                # blocks its own sub-strings ("gross npa ratio" ⊃ "gross npa")
+                # from double-matching the same text.
+                consumed: list[tuple[int, int]] = []
                 for alias, code in aliases:
                     idx = lowered.find(alias)
                     if idx < 0:
                         continue
+                    span = (idx, idx + len(alias))
+                    if any(span[0] < end and span[1] > start for start, end in consumed):
+                        continue
+                    consumed.append(span)
                     tail = segment[idx + len(alias):]
-                    m = NUMBER_RE.search(tail)
-                    if not m or not m.group(1).strip("()-,. "):
-                        continue
-                    gap = m.start()
-                    if gap > 40:  # number too far from label to trust the association
-                        continue
                     kpi = KPI_REGISTRY[code]
+                    matches = [x for x in NUMBER_RE.finditer(tail)
+                               if x.start() <= 40 and x.group(1).strip("()-,. ")]
+                    if not matches:
+                        continue
+                    # "NIM improved by 25 bps to 3.85%": for percent KPIs an
+                    # explicit %-marked figure is the level; a bps figure is a
+                    # movement. Prefer the % match over positional order.
+                    m = None
+                    if kpi.unit == "percent":
+                        m = next((x for x in matches
+                                  if x.group(2).lower().replace(" ", "").rstrip(".")
+                                  in ("%", "percent")), None)
+                    if m is None:
+                        m = matches[0]
+                    gap = m.start()
                     value = normalize_value(m.group(1), m.group(2), kpi.unit)
                     if value is None:
                         continue
                     confidence = round(base_confidence - min(gap, 30) * 0.005, 3)
                     out.append(Candidate(code, value, page.number, self.method,
                                          confidence, segment.strip()[:300]))
-                    break  # longest-alias-first index: first hit per segment wins
         return out
 
 

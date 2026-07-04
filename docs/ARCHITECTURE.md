@@ -115,6 +115,12 @@ lineage foundations they need are already in the schema.
 - **Multi-column layouts**: pdfplumber's default text flow handles most
   annual reports; complex layout parsing (column detection) is the next
   extraction upgrade.
+- **Extraction quality gate**: `scripts/make_stress_pdf.py` +
+  `tests/test_stress_extraction.py` hold a 26-figure ground truth across
+  hostile patterns (movement-then-level phrasing, "per cent", multi-year
+  tables, section-header rows, unit-in-label ratio tables). Extractor changes
+  must keep it at 26/26. Validation against *real* bank annual reports is the
+  next step wherever network policy (or a manual upload) allows fetching one.
 - **Fiscal-year inference**: the uploader declares the FY; cross-checking the
   declared FY against dates found in the document is a planned validation.
 - **Benchmark universe**: peers = all banks in the warehouse. Peer-group
