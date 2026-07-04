@@ -45,7 +45,7 @@ class Document(Base):
     fiscal_year: Mapped[str] = mapped_column(String(10))
     filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pages: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[str] = mapped_column(String(30), default="processed")  # processed | ocr_required | failed
+    status: Mapped[str] = mapped_column(String(30), default="processed")  # processed | processed_ocr | ocr_required | failed
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     bank: Mapped[Bank] = relationship(back_populates="documents")

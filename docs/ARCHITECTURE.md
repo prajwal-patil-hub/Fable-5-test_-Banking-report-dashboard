@@ -106,8 +106,12 @@ lineage foundations they need are already in the schema.
 
 ## Honest limitations / next iterations
 
-- **Scanned PDFs**: detected and marked `ocr_required`; an OCR stage
-  (Tesseract/textract) slots in front of the extractors. Not yet implemented.
+- **Scanned PDFs**: handled — image-only PDFs are rasterised and read with
+  Tesseract (`pip install -e ".[ocr]"` + tesseract binary), with a
+  confidence haircut on OCR-derived facts and `processed_ocr` status. OCR
+  loses table *structure*, so only the rule-based extractor applies; OCR
+  table reconstruction is the next extraction upgrade. Without the OCR
+  dependencies installed, such documents are marked `ocr_required`.
 - **Multi-column layouts**: pdfplumber's default text flow handles most
   annual reports; complex layout parsing (column detection) is the next
   extraction upgrade.

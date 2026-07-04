@@ -1,14 +1,15 @@
 """Ingestion pipeline: PDF → pages → candidates → resolved facts → derived
 KPIs → validation. One transaction per document.
 
-Scanned (image-only) PDFs are detected and the document is marked
-``ocr_required`` instead of silently producing an empty extraction — an OCR
-stage (e.g. Tesseract) slots in front of the extractors when needed.
+Scanned (image-only) PDFs go through the OCR stage (Tesseract) when it is
+installed; its candidates carry a confidence haircut and the document is
+marked ``processed_ocr``. Without OCR capability the document is marked
+``ocr_required`` instead of silently producing an empty extraction.
 """
 from __future__ import annotations
 
 import io
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pdfplumber
 from sqlalchemy.orm import Session
@@ -18,6 +19,9 @@ from app.modules.document_intelligence.extractors import (
     DEFAULT_EXTRACTORS, Candidate, PageContent, resolve,
 )
 from app.modules.document_intelligence.fiscal import fy_mismatch
+from app.modules.document_intelligence.ocr import (
+    OCR_CONFIDENCE_FACTOR, ocr_available, ocr_pdf_pages,
+)
 from app.modules.kpi_warehouse import service as warehouse
 from app.modules.kpi_warehouse.calculation import derive_missing
 from app.modules.validation.engine import validate_bank_year
@@ -50,10 +54,19 @@ def ingest_pdf(db: Session, *, data: bytes, bank_id: int, doc_type: str,
     pages = read_pdf(data)
     is_scanned = bool(pages) and all(not p.text.strip() for p in pages)
 
+    ocr_used = False
+    if is_scanned and ocr_available():
+        texts = ocr_pdf_pages(data)
+        if any(t.strip() for t in texts):
+            pages = [PageContent(number=i, text=t, tables=[])
+                     for i, t in enumerate(texts, start=1)]
+            is_scanned = False
+            ocr_used = True
+
+    status = "ocr_required" if is_scanned else ("processed_ocr" if ocr_used else "processed")
     doc = Document(
         bank_id=bank_id, title=title, doc_type=doc_type, fiscal_year=fiscal_year,
-        filename=filename, pages=len(pages),
-        status="ocr_required" if is_scanned else "processed",
+        filename=filename, pages=len(pages), status=status,
     )
     db.add(doc)
     db.flush()
@@ -73,6 +86,10 @@ def ingest_pdf(db: Session, *, data: bytes, bank_id: int, doc_type: str,
         candidates: list[Candidate] = []
         for extractor in extractors:
             candidates.extend(extractor.extract(pages))
+        if ocr_used:
+            # OCR misreads digits in ways a native text layer never does
+            candidates = [replace(c, confidence=round(c.confidence * OCR_CONFIDENCE_FACTOR, 3))
+                          for c in candidates]
         resolved = resolve(candidates)
 
         for cand in resolved.values():
