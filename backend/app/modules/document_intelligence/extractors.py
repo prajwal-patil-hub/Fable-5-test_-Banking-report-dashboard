@@ -16,6 +16,7 @@ lineage (page, method, source text, confidence).
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -129,27 +130,99 @@ class TableExtractor:
 
 
 class LlmExtractor:
-    """Pluggable LLM fallback — OFF by default.
+    """Claude-based fallback extractor — OFF by default (see Settings.llm_extraction_enabled).
 
-    Integration point for a Claude-based extractor targeting layouts the
-    deterministic strategies miss (narrative-embedded figures, exotic table
-    structures). Contract for any future implementation:
+    Targets layouts the deterministic strategies miss (narrative-embedded
+    figures, exotic table structures). Trust constraints, enforced here and
+    non-negotiable:
 
-    - prompt with the registry's KPI definitions and the page text;
-    - require page number + verbatim source quote for every value (lineage);
-    - cap confidence at ``max_confidence`` so deterministic hits always win;
-    - validate the quote actually appears on the cited page before accepting.
-
-    Kept as an explicit no-op rather than deleted: the pipeline composes
-    extractors, and this preserves the seam where AI earns its place only
-    after the deterministic baseline is exhausted.
+    - every value must cite a page number and a verbatim quote;
+    - the quote is verified to actually appear on the cited page — a value
+      with a fabricated or paraphrased quote is dropped;
+    - confidence is capped at ``max_confidence`` (0.6), below the table
+      extractor (0.9) and rule-based extractor (~0.75), so a deterministic
+      hit always outranks an LLM reading of the same figure;
+    - any API/parsing failure degrades to "no candidates", never breaks the
+      deterministic pipeline.
     """
 
     method = "llm"
     max_confidence = 0.6
+    max_pages = 40
+    max_chars_per_page = 4000
+
+    def __init__(self, client=None, model: str | None = None):
+        # client injectable for tests; lazily built from the anthropic SDK
+        # (optional dependency: pip install -e ".[llm]") when enabled.
+        self._client = client
+        self._model = model
+
+    def _get_client(self):
+        if self._client is not None:
+            return self._client
+        try:
+            import anthropic
+            self._client = anthropic.Anthropic()
+        except Exception:
+            return None
+        return self._client
+
+    def _prompt(self, pages: list[PageContent]) -> str:
+        kpi_lines = "\n".join(
+            f"- {k.code}: {k.name} (unit: {k.unit})" for k in KPI_REGISTRY.values())
+        page_blocks = "\n\n".join(
+            f"[PAGE {p.number}]\n{p.text[:self.max_chars_per_page]}"
+            for p in pages[:self.max_pages] if p.text.strip())
+        return (
+            "You extract banking KPIs from annual-report text. Return ONLY a JSON "
+            "array; no prose. Each element: {\"kpi_code\": one of the codes below, "
+            "\"value\": number, \"unit\": the unit word as printed (e.g. \"crore\", "
+            "\"%\", \"bps\", or \"\"), \"page\": page number, \"quote\": VERBATIM "
+            "sentence or table-row fragment containing the figure}. Only include "
+            "figures explicitly present in the text for the CURRENT reporting year; "
+            "never estimate, never compute.\n\nKPI codes:\n"
+            f"{kpi_lines}\n\nDocument pages:\n{page_blocks}"
+        )
 
     def extract(self, pages: list[PageContent]) -> list[Candidate]:
-        return []
+        client = self._get_client()
+        if client is None or not pages:
+            return []
+        try:
+            from app.core.config import settings
+            response = client.messages.create(
+                model=self._model or settings.llm_model,
+                max_tokens=4096,
+                messages=[{"role": "user", "content": self._prompt(pages)}],
+            )
+            raw = response.content[0].text
+            start, end = raw.find("["), raw.rfind("]")
+            items = json.loads(raw[start:end + 1])
+        except Exception:
+            return []
+
+        page_texts = {p.number: " ".join(p.text.split()) for p in pages}
+        out: list[Candidate] = []
+        for item in items if isinstance(items, list) else []:
+            try:
+                code = item["kpi_code"]
+                page_no = int(item["page"])
+                quote = str(item.get("quote", "")).strip()
+            except (KeyError, TypeError, ValueError):
+                continue
+            kpi = KPI_REGISTRY.get(code)
+            page_text = page_texts.get(page_no)
+            if kpi is None or page_text is None or not quote:
+                continue
+            if " ".join(quote.split()) not in page_text:
+                continue  # fabricated/paraphrased citation — reject
+            value = normalize_value(str(item.get("value", "")), str(item.get("unit", "")),
+                                    kpi.unit)
+            if value is None:
+                continue
+            out.append(Candidate(code, value, page_no, self.method,
+                                 self.max_confidence, quote[:300]))
+        return out
 
 
 DEFAULT_EXTRACTORS = (TableExtractor(), RuleBasedExtractor())

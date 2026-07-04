@@ -63,8 +63,15 @@ def ingest_pdf(db: Session, *, data: bytes, bank_id: int, doc_type: str,
     counts = {"passed": 0, "warning": 0, "failed": 0}
 
     if not is_scanned:
+        from app.core.config import settings
+        from app.modules.document_intelligence.extractors import LlmExtractor
+
+        extractors = list(DEFAULT_EXTRACTORS)
+        if settings.llm_extraction_enabled:
+            extractors.append(LlmExtractor())
+
         candidates: list[Candidate] = []
-        for extractor in DEFAULT_EXTRACTORS:
+        for extractor in extractors:
             candidates.extend(extractor.extract(pages))
         resolved = resolve(candidates)
 
