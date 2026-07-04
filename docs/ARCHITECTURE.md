@@ -2,6 +2,29 @@
 
 ## The shape of the system
 
+```mermaid
+flowchart TD
+    A[PDF Upload] --> B{Document Intelligence}
+    B -->|table extractor 0.90| C[Candidates]
+    B -->|rule-based 0.70-0.75| C
+    B -.->|LLM seam, off, cap 0.60| C
+    B -->|image-only PDF| X[ocr_required]
+    C --> D[Resolve: best confidence per KPI]
+    D --> E[(KPI Warehouse<br/>facts + lineage)]
+    R[KPI Registry<br/>33 definitions] --- E
+    E --> F[derive_missing<br/>reported beats derived]
+    F --> G[Validation Engine<br/>11 banking rules]
+    E --> H[Benchmarking Engine]
+    E --> I[Narrative Engine]
+    G --> S[service.py — single read path]
+    H --> S
+    I --> S
+    S --> J[Dashboard]
+    S --> K[PDF Report]
+    S --> L[PPTX Deck]
+    S --> M[Excel Pack]
+```
+
 ```
 Documents ──► Document Intelligence ──► KPI Warehouse ──► Analytics ──► Surfaces
  (PDF)         extract / normalize       facts + lineage    benchmarking   dashboard

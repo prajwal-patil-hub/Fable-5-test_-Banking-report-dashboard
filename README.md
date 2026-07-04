@@ -1,5 +1,7 @@
 # Sovereign — Banking Annual Report Intelligence Platform
 
+![Sovereign flow](docs/assets/flow.png)
+
 Transforms unstructured banking documents (annual reports, Basel disclosures,
 ESG reports) into a validated KPI warehouse, peer benchmarking, executive
 narrative, an interactive dashboard, and boardroom-ready deliverables
