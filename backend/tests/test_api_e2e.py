@@ -106,6 +106,14 @@ def test_document_upload_roundtrip(client, tmp_path):
     assert by_code["gnpa"]["lineage"]["document_id"] == body["document_id"]
     assert by_code["gnpa"]["lineage"]["page"] is not None
 
+    # The document titles itself FY2025 but was filed under FY2026 —
+    # the fiscal-year cross-check must flag it
+    validations = client.get(f"/api/banks/{bank_id}/validations",
+                             params={"fiscal_year": "FY2026"}).json()["results"]
+    crosscheck = next(v for v in validations if v["rule_code"] == "fy_crosscheck")
+    assert crosscheck["status"] == "failed"
+    assert "FY2025" in crosscheck["message"]
+
 
 def test_exports_produce_valid_files(client):
     bank_id = client.get("/api/banks").json()["banks"][0]["id"]

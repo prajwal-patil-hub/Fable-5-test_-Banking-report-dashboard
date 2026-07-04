@@ -115,6 +115,8 @@ async def upload_document(
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF documents are supported")
     data = await file.read()
+    if len(data) > 50 * 1024 * 1024:
+        raise HTTPException(413, "PDF exceeds the 50 MB upload limit")
     try:
         result = ingest_pdf(
             db, data=data, bank_id=bank.id, doc_type=doc_type, fiscal_year=fiscal_year,

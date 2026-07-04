@@ -13,10 +13,11 @@ from dataclasses import dataclass
 import pdfplumber
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, Document
+from app.models import AuditLog, Document, ValidationResult
 from app.modules.document_intelligence.extractors import (
     DEFAULT_EXTRACTORS, Candidate, PageContent, resolve,
 )
+from app.modules.document_intelligence.fiscal import fy_mismatch
 from app.modules.kpi_warehouse import service as warehouse
 from app.modules.kpi_warehouse.calculation import derive_missing
 from app.modules.validation.engine import validate_bank_year
@@ -102,6 +103,24 @@ def ingest_pdf(db: Session, *, data: bytes, bank_id: int, doc_type: str,
                 counts["failed"] += 1
             else:
                 counts["warning"] += 1
+
+        # Document-level cross-check: does the file's own text agree with the
+        # fiscal year it was filed under? (Runs after validate_bank_year,
+        # which clears and rewrites the bank-year's rule results.)
+        front_matter = "\n".join(p.text for p in pages[:5])
+        mismatch = fy_mismatch(fiscal_year, front_matter)
+        db.add(ValidationResult(
+            bank_id=bank_id, fiscal_year=fiscal_year,
+            rule_code="fy_crosscheck",
+            rule_name="Declared fiscal year matches document text",
+            severity="warning",
+            status="failed" if mismatch else "passed",
+            message=mismatch or "OK",
+        ))
+        if mismatch:
+            counts["warning"] += 1
+        else:
+            counts["passed"] += 1
 
     db.add(AuditLog(action="document_ingested",
                     detail=f"doc={doc.id} bank={bank_id} fy={fiscal_year} "
