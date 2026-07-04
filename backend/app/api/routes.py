@@ -39,7 +39,8 @@ def health():
 @router.get("/banks")
 def list_banks(db: Session = Depends(get_db)):
     banks = db.execute(select(Bank).order_by(Bank.name)).scalars().all()
-    return {"banks": [{"id": b.id, "code": b.code, "name": b.name, "is_demo": b.is_demo}
+    return {"banks": [{"id": b.id, "code": b.code, "name": b.name,
+                       "segment": b.segment, "is_demo": b.is_demo}
                       for b in banks]}
 
 
@@ -63,15 +64,17 @@ def kpi_history(bank_id: int, kpi_code: str, db: Session = Depends(get_db)):
 
 
 @router.get("/benchmarking")
-def benchmarking(kpi_code: str, fiscal_year: str, db: Session = Depends(get_db)):
+def benchmarking(kpi_code: str, fiscal_year: str, segment: str | None = None,
+                 db: Session = Depends(get_db)):
     if kpi_code not in KPI_REGISTRY:
         raise HTTPException(404, f"Unknown KPI: {kpi_code}")
-    return benchmark_kpi(db, kpi_code, fiscal_year)
+    return benchmark_kpi(db, kpi_code, fiscal_year, segment)
 
 
 @router.get("/benchmarking/summary")
-def benchmarking_summary(fiscal_year: str, db: Session = Depends(get_db)):
-    return benchmark_summary(db, fiscal_year)
+def benchmarking_summary(fiscal_year: str, segment: str | None = None,
+                         db: Session = Depends(get_db)):
+    return benchmark_summary(db, fiscal_year, segment)
 
 
 @router.get("/banks/{bank_id}/narrative")

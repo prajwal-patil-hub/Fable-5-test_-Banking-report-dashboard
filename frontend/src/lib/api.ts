@@ -67,6 +67,7 @@ export interface Bank {
   id: number;
   code: string;
   name: string;
+  segment: "private" | "public" | "sfb" | "foreign" | "universal";
   is_demo: boolean;
 }
 

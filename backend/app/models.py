@@ -26,6 +26,10 @@ class Bank(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True)
     name: Mapped[str] = mapped_column(String(120))
+    # Peer-cohort segment: private | public | sfb | foreign | universal.
+    # Benchmarking can filter to a cohort so a small finance bank is not
+    # ranked against a public-sector giant.
+    segment: Mapped[str] = mapped_column(String(20), default="universal")
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
     documents: Mapped[list["Document"]] = relationship(back_populates="bank")
