@@ -50,17 +50,26 @@ def list_years(bank_id: int, db: Session = Depends(get_db)):
     return {"fiscal_years": warehouse.fiscal_years(db, bank_id)}
 
 
+def _check_currency(currency: str) -> str:
+    if currency not in ("inr", "usd"):
+        raise HTTPException(422, "currency must be 'inr' or 'usd'")
+    return currency
+
+
 @router.get("/banks/{bank_id}/kpis")
-def bank_kpis(bank_id: int, fiscal_year: str, db: Session = Depends(get_db)):
-    return warehouse.kpi_payload(db, _bank(db, bank_id), fiscal_year)
+def bank_kpis(bank_id: int, fiscal_year: str, currency: str = "inr",
+              db: Session = Depends(get_db)):
+    return warehouse.kpi_payload(db, _bank(db, bank_id), fiscal_year,
+                                 _check_currency(currency))
 
 
 @router.get("/banks/{bank_id}/kpis/{kpi_code}/history")
-def kpi_history(bank_id: int, kpi_code: str, db: Session = Depends(get_db)):
+def kpi_history(bank_id: int, kpi_code: str, currency: str = "inr",
+                db: Session = Depends(get_db)):
     _bank(db, bank_id)
     if kpi_code not in KPI_REGISTRY:
         raise HTTPException(404, f"Unknown KPI: {kpi_code}")
-    return warehouse.history(db, bank_id, kpi_code)
+    return warehouse.history(db, bank_id, kpi_code, _check_currency(currency))
 
 
 @router.get("/benchmarking")

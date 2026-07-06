@@ -54,11 +54,17 @@ type KpiValue = {
 
 ### KPI warehouse
 
-- `GET /api/banks/{bank_id}/kpis?fiscal_year=FY2024`
-  → `{ bank: {id, code, name}, fiscal_year, kpis: KpiValue[] }`
+- `GET /api/banks/{bank_id}/kpis?fiscal_year=FY2024[&currency=usd]`
+  → `{ bank: {id, code, name}, fiscal_year, currency: "inr"|"usd", kpis: KpiValue[] }`
   All KPIs for the bank-year, across categories. Frontend groups by `category`.
-- `GET /api/banks/{bank_id}/kpis/{kpi_code}/history`
+- `GET /api/banks/{bank_id}/kpis/{kpi_code}/history[?currency=usd]`
   → `{ kpi_code, name, unit, direction, series: [{ fiscal_year, value }] }`
+
+**Currency display layer:** warehouse storage is always ₹ crore. With
+`currency=usd`, monetary values (`unit: "inr_crore"`) are converted for
+display to US$ million (`unit` becomes `"usd_mn"`; `value` and `yoy_change`
+converted; `yoy_change_pct` unchanged; percent/count KPIs untouched).
+Conversion rate: `SOVEREIGN_USD_INR_RATE` (default 83.5). Exports remain ₹.
 
 ### Benchmarking
 

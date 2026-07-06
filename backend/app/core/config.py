@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # ANTHROPIC_API_KEY in the environment and `pip install -e ".[llm]"`.
     llm_extraction_enabled: bool = False
     llm_model: str = "claude-sonnet-5"
+    # Display-only conversion rate for the currency layer (INR per USD).
+    # Warehouse storage is always ₹ crore; USD is computed at read time.
+    usd_inr_rate: float = 83.5
 
     model_config = {"env_prefix": "SOVEREIGN_", "env_file": ".env"}
 

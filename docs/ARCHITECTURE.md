@@ -125,6 +125,7 @@ lineage foundations they need are already in the schema.
   declared FY against dates found in the document is a planned validation.
 - **Benchmark universe**: peers = all banks in the warehouse. Peer-group
   curation (size/segment cohorts) becomes necessary beyond ~20 banks.
-- **Workbook/report internationalisation**: ₹ crore is the canonical unit;
-  a units layer (USD mn, configurable) is straightforward on top of the
-  registry but not yet built.
+- **Currency display layer**: done for the API/dashboard — `currency=usd`
+  converts monetary KPIs to US$ mn at read time (`SOVEREIGN_USD_INR_RATE`);
+  storage stays ₹ crore. Exports deliberately remain ₹; a rate *source*
+  (daily FX feed) is a production add-on.
