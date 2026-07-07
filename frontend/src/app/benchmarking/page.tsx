@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api, type Bank, type BenchmarkingSummaryKpi } from "@/lib/api";
+import {
+  api,
+  type Bank,
+  type BankSegment,
+  type BenchmarkingSummaryKpi,
+} from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useBank } from "@/context/BankContext";
 import { formatValue } from "@/lib/format";
@@ -51,14 +56,16 @@ function DetailSection({
   bank,
   fiscalYear,
   kpiCode,
+  segment,
 }: {
   bank: Bank;
   fiscalYear: string;
   kpiCode: string;
+  segment: BankSegment | null;
 }) {
   const state = useApi(
-    () => api.getBenchmarking(kpiCode, fiscalYear),
-    [kpiCode, fiscalYear],
+    () => api.getBenchmarking(kpiCode, fiscalYear, segment),
+    [kpiCode, fiscalYear, segment],
   );
 
   if (state.loading) return <ChartSkeleton className="h-[28rem]" />;
@@ -170,9 +177,13 @@ function BenchmarkingBody({
   bank: Bank;
   fiscalYear: string;
 }) {
+  const { banks } = useBank();
+  const [segment, setSegment] = useState<BankSegment | null>(null);
+  const segments = Array.from(new Set(banks.map((b) => b.segment))).sort();
+
   const summaryState = useApi(
-    () => api.getBenchmarkingSummary(fiscalYear),
-    [fiscalYear],
+    () => api.getBenchmarkingSummary(fiscalYear, segment),
+    [fiscalYear, segment],
   );
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
 
@@ -193,24 +204,47 @@ function BenchmarkingBody({
       <section className="mb-10">
         <div className="mb-4 flex items-center justify-between gap-6">
           <SectionLabel>Detailed Comparison · {fiscalYear}</SectionLabel>
-          {kpis.length > 0 ? (
-            <label className="flex items-center gap-3">
-              <span className="text-[10px] uppercase tracking-[0.25em] text-text-secondary">
-                Indicator
-              </span>
-              <select
-                className="sovereign-select min-w-56 border border-border bg-ink-2 px-3 py-1.5 pr-8 text-sm text-text-primary outline-none hover:border-gold/60 focus:border-gold"
-                value={activeCode ?? ""}
-                onChange={(e) => setSelectedCode(e.target.value)}
-              >
-                {kpis.map((k) => (
-                  <option key={k.kpi_code} value={k.kpi_code}>
-                    {k.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
+          <div className="flex items-center gap-6">
+            {segments.length > 1 ? (
+              <label className="flex items-center gap-3">
+                <span className="text-[10px] uppercase tracking-[0.25em] text-text-secondary">
+                  Peer set
+                </span>
+                <select
+                  className="sovereign-select min-w-36 border border-border bg-ink-2 px-3 py-1.5 pr-8 text-sm text-text-primary outline-none hover:border-gold/60 focus:border-gold"
+                  value={segment ?? ""}
+                  onChange={(e) =>
+                    setSegment((e.target.value || null) as BankSegment | null)
+                  }
+                >
+                  <option value="">All banks</option>
+                  {segments.map((s) => (
+                    <option key={s} value={s}>
+                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {kpis.length > 0 ? (
+              <label className="flex items-center gap-3">
+                <span className="text-[10px] uppercase tracking-[0.25em] text-text-secondary">
+                  Indicator
+                </span>
+                <select
+                  className="sovereign-select min-w-56 border border-border bg-ink-2 px-3 py-1.5 pr-8 text-sm text-text-primary outline-none hover:border-gold/60 focus:border-gold"
+                  value={activeCode ?? ""}
+                  onChange={(e) => setSelectedCode(e.target.value)}
+                >
+                  {kpis.map((k) => (
+                    <option key={k.kpi_code} value={k.kpi_code}>
+                      {k.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
         </div>
         {summaryState.loading ? (
           <ChartSkeleton className="h-[28rem]" />
@@ -224,6 +258,7 @@ function BenchmarkingBody({
             bank={bank}
             fiscalYear={fiscalYear}
             kpiCode={activeCode}
+            segment={segment}
           />
         ) : (
           <Card className="p-8 text-sm text-text-secondary">
@@ -234,7 +269,10 @@ function BenchmarkingBody({
 
       {/* Full summary grid */}
       <section>
-        <SectionLabel className="mb-4">Peer Standing — All Indicators</SectionLabel>
+        <SectionLabel className="mb-4">
+          Peer Standing —{" "}
+          {segment ? `${segment.toUpperCase()} BANKS` : "All Indicators"}
+        </SectionLabel>
         {summaryState.loading ? (
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (

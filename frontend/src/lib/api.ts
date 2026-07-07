@@ -41,7 +41,17 @@ export type KpiCategory =
   | "operations"
   | "esg";
 
-export type KpiUnit = "inr_crore" | "percent" | "count" | "ratio";
+/**
+ * `usd_mn` appears only in the currency display layer: with `currency=usd`
+ * the warehouse converts monetary `inr_crore` values to US$ million for
+ * display (percent/count/ratio KPIs are untouched).
+ */
+export type KpiUnit = "inr_crore" | "usd_mn" | "percent" | "count" | "ratio";
+
+export type Currency = "inr" | "usd";
+
+/** Peer-cohort tag carried by each bank. */
+export type BankSegment = "private" | "public" | "sfb" | "foreign" | "universal";
 
 export type KpiDirection = "higher_is_better" | "lower_is_better" | "neutral";
 
@@ -67,7 +77,7 @@ export interface Bank {
   id: number;
   code: string;
   name: string;
-  segment: "private" | "public" | "sfb" | "foreign" | "universal";
+  segment: BankSegment;
   is_demo: boolean;
 }
 
@@ -88,6 +98,7 @@ export interface BankRef {
 export interface KpisResponse {
   bank: BankRef;
   fiscal_year: string;
+  currency: Currency;
   kpis: KpiValue[];
 }
 
@@ -126,6 +137,7 @@ export interface BenchmarkingResponse {
   unit: KpiUnit;
   direction: KpiDirection;
   fiscal_year: string;
+  segment: BankSegment | null; // null when unfiltered
   peers: BenchmarkPeer[];
   stats: BenchmarkStats;
 }
@@ -141,6 +153,7 @@ export interface BenchmarkingSummaryKpi {
 
 export interface BenchmarkingSummaryResponse {
   fiscal_year: string;
+  segment: BankSegment | null; // null when unfiltered
   kpis: BenchmarkingSummaryKpi[];
 }
 
@@ -250,23 +263,39 @@ export const api = {
     request<YearsResponse>(`/api/banks/${bankId}/years`),
 
   // KPI warehouse
-  getKpis: (bankId: number, fiscalYear: string) =>
+  getKpis: (bankId: number, fiscalYear: string, currency: Currency = "inr") =>
     request<KpisResponse>(
-      `/api/banks/${bankId}/kpis?fiscal_year=${encodeURIComponent(fiscalYear)}`,
+      `/api/banks/${bankId}/kpis?fiscal_year=${encodeURIComponent(fiscalYear)}${
+        currency === "usd" ? "&currency=usd" : ""
+      }`,
     ),
-  getKpiHistory: (bankId: number, kpiCode: string) =>
+  getKpiHistory: (
+    bankId: number,
+    kpiCode: string,
+    currency: Currency = "inr",
+  ) =>
     request<KpiHistoryResponse>(
-      `/api/banks/${bankId}/kpis/${encodeURIComponent(kpiCode)}/history`,
+      `/api/banks/${bankId}/kpis/${encodeURIComponent(kpiCode)}/history${
+        currency === "usd" ? "?currency=usd" : ""
+      }`,
     ),
 
-  // Benchmarking
-  getBenchmarking: (kpiCode: string, fiscalYear: string) =>
+  // Benchmarking (always ₹; optional peer-cohort filter)
+  getBenchmarking: (
+    kpiCode: string,
+    fiscalYear: string,
+    segment?: BankSegment | null,
+  ) =>
     request<BenchmarkingResponse>(
-      `/api/benchmarking?kpi_code=${encodeURIComponent(kpiCode)}&fiscal_year=${encodeURIComponent(fiscalYear)}`,
+      `/api/benchmarking?kpi_code=${encodeURIComponent(kpiCode)}&fiscal_year=${encodeURIComponent(fiscalYear)}${
+        segment ? `&segment=${encodeURIComponent(segment)}` : ""
+      }`,
     ),
-  getBenchmarkingSummary: (fiscalYear: string) =>
+  getBenchmarkingSummary: (fiscalYear: string, segment?: BankSegment | null) =>
     request<BenchmarkingSummaryResponse>(
-      `/api/benchmarking/summary?fiscal_year=${encodeURIComponent(fiscalYear)}`,
+      `/api/benchmarking/summary?fiscal_year=${encodeURIComponent(fiscalYear)}${
+        segment ? `&segment=${encodeURIComponent(segment)}` : ""
+      }`,
     ),
 
   // Narrative

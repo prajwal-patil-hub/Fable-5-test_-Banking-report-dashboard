@@ -5,11 +5,22 @@ const inrFmtSmall = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 2,
 });
 const countFmt = new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 });
+const usdFmt = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+const usdFmtSmall = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
 
 /** ₹ crore with Indian digit grouping, e.g. "₹1,23,456 Cr". */
 export function formatINRCrore(value: number): string {
   const fmt = Math.abs(value) < 100 ? inrFmtSmall : inrFmt;
   return `₹${fmt.format(value)} Cr`;
+}
+
+/** US$ million with Western digit grouping, e.g. "$5,029 mn" / "$42.7 mn". */
+export function formatUSDMn(value: number): string {
+  const fmt = Math.abs(value) < 100 ? usdFmtSmall : usdFmt;
+  return `$${fmt.format(value)} mn`;
 }
 
 /** "14.2%" — one decimal by default. */
@@ -30,6 +41,8 @@ export function formatValue(value: number | null, unit: KpiUnit): string {
   switch (unit) {
     case "inr_crore":
       return formatINRCrore(value);
+    case "usd_mn":
+      return formatUSDMn(value);
     case "percent":
       return formatPercent(value);
     case "count":
@@ -46,6 +59,8 @@ export function formatDelta(value: number, unit: KpiUnit): string {
   switch (unit) {
     case "inr_crore":
       return `${sign}${formatINRCrore(abs)}`;
+    case "usd_mn":
+      return `${sign}${formatUSDMn(abs)}`;
     case "percent":
       return `${sign}${abs.toFixed(1)} pp`;
     case "count":

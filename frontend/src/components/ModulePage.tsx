@@ -37,10 +37,11 @@ function ModuleBody({
 }) {
   const { category, trendCodes } = config;
   const [selectedKpi, setSelectedKpi] = useState<KpiValue | null>(null);
+  const { currency } = useBank();
 
   const kpisState = useApi(
-    () => api.getKpis(bank.id, fiscalYear),
-    [bank.id, fiscalYear],
+    () => api.getKpis(bank.id, fiscalYear, currency),
+    [bank.id, fiscalYear, currency],
   );
   const narrativeState = useApi(
     () => api.getNarrative(bank.id, fiscalYear),
@@ -71,9 +72,11 @@ function ModuleBody({
   const historyState = useApi(
     chartCodes.length > 0
       ? () =>
-          Promise.all(chartCodes.map((c) => api.getKpiHistory(bank.id, c)))
+          Promise.all(
+            chartCodes.map((c) => api.getKpiHistory(bank.id, c, currency)),
+          )
       : null,
-    [bank.id, chartKey],
+    [bank.id, chartKey, currency],
   );
 
   const section = narrativeState.data?.sections.find(
