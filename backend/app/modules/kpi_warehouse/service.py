@@ -9,9 +9,30 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models import Bank, KpiValue
 from app.modules.kpi_warehouse.calculation import yoy_delta
 from app.modules.kpi_warehouse.registry import KPI_REGISTRY
+
+
+def _to_usd_mn(inr_crore: float | None) -> float | None:
+    """₹1 crore = ₹10 million; USD mn = INR mn / rate. Display-only."""
+    if inr_crore is None:
+        return None
+    return round(inr_crore * 10 / settings.usd_inr_rate, 1)
+
+
+def _convert_kpi_currency(kpi: dict) -> dict:
+    """Convert one contract-shaped KPI dict to USD display units in place.
+    Only monetary KPIs change; percent/count units and yoy_change_pct are
+    currency-invariant."""
+    if kpi["unit"] != "inr_crore":
+        return kpi
+    kpi["unit"] = "usd_mn"
+    kpi["value"] = _to_usd_mn(kpi["value"])
+    if "yoy_change" in kpi:
+        kpi["yoy_change"] = _to_usd_mn(kpi["yoy_change"])
+    return kpi
 
 
 def fiscal_years(db: Session, bank_id: int) -> list[str]:
@@ -36,7 +57,7 @@ def values_map(db: Session, bank_id: int, fy: str) -> dict[str, KpiValue]:
     return {r.kpi_code: r for r in rows}
 
 
-def kpi_payload(db: Session, bank: Bank, fy: str) -> dict:
+def kpi_payload(db: Session, bank: Bank, fy: str, currency: str = "inr") -> dict:
     cur = values_map(db, bank.id, fy)
     prev_fy = prior_year(db, bank.id, fy)
     prev = values_map(db, bank.id, prev_fy) if prev_fy else {}
@@ -72,26 +93,32 @@ def kpi_payload(db: Session, bank: Bank, fy: str) -> dict:
 
     order = list(KPI_REGISTRY)
     kpis.sort(key=lambda k: order.index(k["kpi_code"]))
+    if currency == "usd":
+        kpis = [_convert_kpi_currency(k) for k in kpis]
     return {
         "bank": {"id": bank.id, "code": bank.code, "name": bank.name},
         "fiscal_year": fy,
+        "currency": currency,
         "kpis": kpis,
     }
 
 
-def history(db: Session, bank_id: int, kpi_code: str) -> dict:
+def history(db: Session, bank_id: int, kpi_code: str, currency: str = "inr") -> dict:
     kpi = KPI_REGISTRY[kpi_code]
     rows = db.execute(
         select(KpiValue)
         .where(KpiValue.bank_id == bank_id, KpiValue.kpi_code == kpi_code)
         .order_by(KpiValue.fiscal_year)
     ).scalars().all()
+    convert = currency == "usd" and kpi.unit == "inr_crore"
     return {
         "kpi_code": kpi_code,
         "name": kpi.name,
-        "unit": kpi.unit,
+        "unit": "usd_mn" if convert else kpi.unit,
         "direction": kpi.direction,
-        "series": [{"fiscal_year": r.fiscal_year, "value": r.value} for r in rows],
+        "series": [{"fiscal_year": r.fiscal_year,
+                    "value": _to_usd_mn(r.value) if convert else r.value}
+                   for r in rows],
     }
 
 

@@ -31,7 +31,7 @@ FISCAL_YEARS = ["FY2023", "FY2024", "FY2025"]
 # or additive drift ("d", units/yr) per KPI across the three years.
 PROFILES: dict[str, dict] = {
     "MRDN": {
-        "name": "Meridian Bank",
+        "name": "Meridian Bank", "segment": "private",
         "base": {
             "total_income": 52000, "nii": 21000, "other_income": 9000, "nim": 4.10,
             "operating_expenses": 12500, "operating_profit": 17500, "pat": 9800,
@@ -53,7 +53,7 @@ PROFILES: dict[str, dict] = {
                   "digital_txn_share": 3, "women_workforce_pct": 1.0},
     },
     "ALBN": {
-        "name": "Albion National Bank",
+        "name": "Albion National Bank", "segment": "public",
         "base": {
             "total_income": 98000, "nii": 36000, "other_income": 14000, "nim": 2.85,
             "operating_expenses": 28500, "operating_profit": 21500, "pat": 8200,
@@ -75,7 +75,7 @@ PROFILES: dict[str, dict] = {
                   "digital_txn_share": 4, "women_workforce_pct": 0.7},
     },
     "CRST": {
-        "name": "Crestline Bank",
+        "name": "Crestline Bank", "segment": "private",
         "base": {
             "total_income": 21000, "nii": 8200, "other_income": 3600, "nim": 3.95,
             "operating_expenses": 6100, "operating_profit": 5700, "pat": 2900,
@@ -97,7 +97,7 @@ PROFILES: dict[str, dict] = {
                   "digital_txn_share": 2, "women_workforce_pct": 1.2},
     },
     "HBRV": {
-        "name": "Harborview Bank",
+        "name": "Harborview Bank", "segment": "private",
         "base": {
             "total_income": 34000, "nii": 14800, "other_income": 4900, "nim": 3.70,
             "operating_expenses": 8900, "operating_profit": 10800, "pat": 6100,
@@ -141,7 +141,8 @@ def seed_demo(db: Session) -> bool:
     from app.modules.kpi_warehouse.registry import KPI_REGISTRY
 
     for code, profile in PROFILES.items():
-        bank = Bank(code=code, name=profile["name"], is_demo=True)
+        bank = Bank(code=code, name=profile["name"],
+                    segment=profile.get("segment", "universal"), is_demo=True)
         db.add(bank)
         db.flush()
 

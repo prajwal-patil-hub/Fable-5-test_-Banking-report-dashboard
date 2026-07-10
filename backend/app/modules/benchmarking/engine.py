@@ -15,13 +15,16 @@ from app.models import Bank, KpiValue
 from app.modules.kpi_warehouse.registry import KPI_REGISTRY, benchmarkable_kpis
 
 
-def benchmark_kpi(db: Session, kpi_code: str, fy: str) -> dict:
+def benchmark_kpi(db: Session, kpi_code: str, fy: str, segment: str | None = None) -> dict:
     kpi = KPI_REGISTRY[kpi_code]
-    rows = db.execute(
+    stmt = (
         select(KpiValue, Bank)
         .join(Bank, Bank.id == KpiValue.bank_id)
         .where(KpiValue.kpi_code == kpi_code, KpiValue.fiscal_year == fy)
-    ).all()
+    )
+    if segment:
+        stmt = stmt.where(Bank.segment == segment)
+    rows = db.execute(stmt).all()
 
     entries = [
         {"bank_id": bank.id, "bank_code": bank.code, "bank_name": bank.name, "value": kv.value}
@@ -44,15 +47,16 @@ def benchmark_kpi(db: Session, kpi_code: str, fy: str) -> dict:
     }
     return {
         "kpi_code": kpi_code, "name": kpi.name, "unit": kpi.unit,
-        "direction": kpi.direction, "fiscal_year": fy,
+        "direction": kpi.direction, "fiscal_year": fy, "segment": segment,
         "peers": entries, "stats": stats,
     }
 
 
-def benchmark_summary(db: Session, fy: str) -> dict:
+def benchmark_summary(db: Session, fy: str, segment: str | None = None) -> dict:
     return {
         "fiscal_year": fy,
-        "kpis": [benchmark_kpi(db, k.code, fy) for k in benchmarkable_kpis()],
+        "segment": segment,
+        "kpis": [benchmark_kpi(db, k.code, fy, segment) for k in benchmarkable_kpis()],
     }
 
 

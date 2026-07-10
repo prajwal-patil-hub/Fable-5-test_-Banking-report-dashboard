@@ -39,7 +39,8 @@ def health():
 @router.get("/banks")
 def list_banks(db: Session = Depends(get_db)):
     banks = db.execute(select(Bank).order_by(Bank.name)).scalars().all()
-    return {"banks": [{"id": b.id, "code": b.code, "name": b.name, "is_demo": b.is_demo}
+    return {"banks": [{"id": b.id, "code": b.code, "name": b.name,
+                       "segment": b.segment, "is_demo": b.is_demo}
                       for b in banks]}
 
 
@@ -49,29 +50,40 @@ def list_years(bank_id: int, db: Session = Depends(get_db)):
     return {"fiscal_years": warehouse.fiscal_years(db, bank_id)}
 
 
+def _check_currency(currency: str) -> str:
+    if currency not in ("inr", "usd"):
+        raise HTTPException(422, "currency must be 'inr' or 'usd'")
+    return currency
+
+
 @router.get("/banks/{bank_id}/kpis")
-def bank_kpis(bank_id: int, fiscal_year: str, db: Session = Depends(get_db)):
-    return warehouse.kpi_payload(db, _bank(db, bank_id), fiscal_year)
+def bank_kpis(bank_id: int, fiscal_year: str, currency: str = "inr",
+              db: Session = Depends(get_db)):
+    return warehouse.kpi_payload(db, _bank(db, bank_id), fiscal_year,
+                                 _check_currency(currency))
 
 
 @router.get("/banks/{bank_id}/kpis/{kpi_code}/history")
-def kpi_history(bank_id: int, kpi_code: str, db: Session = Depends(get_db)):
+def kpi_history(bank_id: int, kpi_code: str, currency: str = "inr",
+                db: Session = Depends(get_db)):
     _bank(db, bank_id)
     if kpi_code not in KPI_REGISTRY:
         raise HTTPException(404, f"Unknown KPI: {kpi_code}")
-    return warehouse.history(db, bank_id, kpi_code)
+    return warehouse.history(db, bank_id, kpi_code, _check_currency(currency))
 
 
 @router.get("/benchmarking")
-def benchmarking(kpi_code: str, fiscal_year: str, db: Session = Depends(get_db)):
+def benchmarking(kpi_code: str, fiscal_year: str, segment: str | None = None,
+                 db: Session = Depends(get_db)):
     if kpi_code not in KPI_REGISTRY:
         raise HTTPException(404, f"Unknown KPI: {kpi_code}")
-    return benchmark_kpi(db, kpi_code, fiscal_year)
+    return benchmark_kpi(db, kpi_code, fiscal_year, segment)
 
 
 @router.get("/benchmarking/summary")
-def benchmarking_summary(fiscal_year: str, db: Session = Depends(get_db)):
-    return benchmark_summary(db, fiscal_year)
+def benchmarking_summary(fiscal_year: str, segment: str | None = None,
+                         db: Session = Depends(get_db)):
+    return benchmark_summary(db, fiscal_year, segment)
 
 
 @router.get("/banks/{bank_id}/narrative")
@@ -115,6 +127,8 @@ async def upload_document(
     if not (file.filename or "").lower().endswith(".pdf"):
         raise HTTPException(400, "Only PDF documents are supported")
     data = await file.read()
+    if len(data) > 50 * 1024 * 1024:
+        raise HTTPException(413, "PDF exceeds the 50 MB upload limit")
     try:
         result = ingest_pdf(
             db, data=data, bank_id=bank.id, doc_type=doc_type, fiscal_year=fiscal_year,

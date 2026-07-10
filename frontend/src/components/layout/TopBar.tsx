@@ -24,8 +24,10 @@ const selectClass =
   "sovereign-select min-w-44 border border-border bg-ink-2 px-3 py-1.5 pr-8 text-sm text-text-primary outline-none transition-colors hover:border-gold/60 focus:border-gold";
 
 export function TopBar() {
-  const { banks, bank, years, fiscalYear, setBankId, setFiscalYear, loading, error } =
-    useBank();
+  const {
+    banks, bank, years, fiscalYear, currency,
+    setBankId, setFiscalYear, setCurrency, loading, error,
+  } = useBank();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-ink/95 px-8 backdrop-blur">
@@ -82,6 +84,26 @@ export function TopBar() {
                 ))}
               </select>
             </SelectShell>
+            <div
+              className="flex items-center border border-border"
+              role="group"
+              aria-label="Display currency"
+            >
+              {([["inr", "₹ Cr"], ["usd", "$ mn"]] as const).map(([code, label]) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => setCurrency(code)}
+                  className={`px-3 py-1.5 text-xs tracking-wide transition-colors ${
+                    currency === code
+                      ? "bg-gold/15 text-gold"
+                      : "text-text-secondary hover:text-text-primary"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </>
         )}
       </div>

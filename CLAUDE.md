@@ -19,6 +19,7 @@ uv venv .venv && uv pip install -p .venv/bin/python -e ".[dev]"  # setup
 .venv/bin/python -m pytest tests/test_validation.py -k roe   # single test
 .venv/bin/uvicorn app.main:app --reload --port 8000          # run API
 .venv/bin/python scripts/make_sample_pdf.py  # synthetic annual report for pipeline testing
+.venv/bin/python scripts/make_stress_pdf.py  # hostile-pattern PDF backing the extraction quality gate
 ```
 
 Frontend (from `frontend/`):

@@ -2,6 +2,29 @@
 
 ## The shape of the system
 
+```mermaid
+flowchart TD
+    A[PDF Upload] --> B{Document Intelligence}
+    B -->|table extractor 0.90| C[Candidates]
+    B -->|rule-based 0.70-0.75| C
+    B -.->|LLM seam, off, cap 0.60| C
+    B -->|image-only PDF| X[ocr_required]
+    C --> D[Resolve: best confidence per KPI]
+    D --> E[(KPI Warehouse<br/>facts + lineage)]
+    R[KPI Registry<br/>33 definitions] --- E
+    E --> F[derive_missing<br/>reported beats derived]
+    F --> G[Validation Engine<br/>11 banking rules]
+    E --> H[Benchmarking Engine]
+    E --> I[Narrative Engine]
+    G --> S[service.py — single read path]
+    H --> S
+    I --> S
+    S --> J[Dashboard]
+    S --> K[PDF Report]
+    S --> L[PPTX Deck]
+    S --> M[Excel Pack]
+```
+
 ```
 Documents ──► Document Intelligence ──► KPI Warehouse ──► Analytics ──► Surfaces
  (PDF)         extract / normalize       facts + lineage    benchmarking   dashboard
@@ -83,15 +106,26 @@ lineage foundations they need are already in the schema.
 
 ## Honest limitations / next iterations
 
-- **Scanned PDFs**: detected and marked `ocr_required`; an OCR stage
-  (Tesseract/textract) slots in front of the extractors. Not yet implemented.
+- **Scanned PDFs**: handled — image-only PDFs are rasterised and read with
+  Tesseract (`pip install -e ".[ocr]"` + tesseract binary), with a
+  confidence haircut on OCR-derived facts and `processed_ocr` status. OCR
+  loses table *structure*, so only the rule-based extractor applies; OCR
+  table reconstruction is the next extraction upgrade. Without the OCR
+  dependencies installed, such documents are marked `ocr_required`.
 - **Multi-column layouts**: pdfplumber's default text flow handles most
   annual reports; complex layout parsing (column detection) is the next
   extraction upgrade.
+- **Extraction quality gate**: `scripts/make_stress_pdf.py` +
+  `tests/test_stress_extraction.py` hold a 26-figure ground truth across
+  hostile patterns (movement-then-level phrasing, "per cent", multi-year
+  tables, section-header rows, unit-in-label ratio tables). Extractor changes
+  must keep it at 26/26. Validation against *real* bank annual reports is the
+  next step wherever network policy (or a manual upload) allows fetching one.
 - **Fiscal-year inference**: the uploader declares the FY; cross-checking the
   declared FY against dates found in the document is a planned validation.
 - **Benchmark universe**: peers = all banks in the warehouse. Peer-group
   curation (size/segment cohorts) becomes necessary beyond ~20 banks.
-- **Workbook/report internationalisation**: ₹ crore is the canonical unit;
-  a units layer (USD mn, configurable) is straightforward on top of the
-  registry but not yet built.
+- **Currency display layer**: done for the API/dashboard — `currency=usd`
+  converts monetary KPIs to US$ mn at read time (`SOVEREIGN_USD_INR_RATE`);
+  storage stays ₹ crore. Exports deliberately remain ₹; a rate *source*
+  (daily FX feed) is a production add-on.

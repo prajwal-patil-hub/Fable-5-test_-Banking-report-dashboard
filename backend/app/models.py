@@ -26,6 +26,10 @@ class Bank(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True)
     name: Mapped[str] = mapped_column(String(120))
+    # Peer-cohort segment: private | public | sfb | foreign | universal.
+    # Benchmarking can filter to a cohort so a small finance bank is not
+    # ranked against a public-sector giant.
+    segment: Mapped[str] = mapped_column(String(20), default="universal")
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
 
     documents: Mapped[list["Document"]] = relationship(back_populates="bank")
@@ -41,7 +45,7 @@ class Document(Base):
     fiscal_year: Mapped[str] = mapped_column(String(10))
     filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     pages: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[str] = mapped_column(String(30), default="processed")  # processed | ocr_required | failed
+    status: Mapped[str] = mapped_column(String(30), default="processed")  # processed | processed_ocr | ocr_required | failed
     uploaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     bank: Mapped[Bank] = relationship(back_populates="documents")

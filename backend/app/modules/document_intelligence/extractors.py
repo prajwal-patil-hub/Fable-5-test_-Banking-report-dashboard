@@ -16,6 +16,7 @@ lineage (page, method, source text, confidence).
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 
@@ -69,25 +70,43 @@ class RuleBasedExtractor:
                          for s in _SENTENCE_SPLIT.split(rejoined)]
             for segment, base_confidence in segments:
                 lowered = segment.lower()
+                # One sentence often names several KPIs ("Total Deposits grew
+                # to X, of which CASA Deposits were Y — a CASA Ratio of Z%"),
+                # so every alias gets a chance — but a consumed label span
+                # blocks its own sub-strings ("gross npa ratio" ⊃ "gross npa")
+                # from double-matching the same text.
+                consumed: list[tuple[int, int]] = []
                 for alias, code in aliases:
                     idx = lowered.find(alias)
                     if idx < 0:
                         continue
+                    span = (idx, idx + len(alias))
+                    if any(span[0] < end and span[1] > start for start, end in consumed):
+                        continue
+                    consumed.append(span)
                     tail = segment[idx + len(alias):]
-                    m = NUMBER_RE.search(tail)
-                    if not m or not m.group(1).strip("()-,. "):
-                        continue
-                    gap = m.start()
-                    if gap > 40:  # number too far from label to trust the association
-                        continue
                     kpi = KPI_REGISTRY[code]
+                    matches = [x for x in NUMBER_RE.finditer(tail)
+                               if x.start() <= 40 and x.group(1).strip("()-,. ")]
+                    if not matches:
+                        continue
+                    # "NIM improved by 25 bps to 3.85%": for percent KPIs an
+                    # explicit %-marked figure is the level; a bps figure is a
+                    # movement. Prefer the % match over positional order.
+                    m = None
+                    if kpi.unit == "percent":
+                        m = next((x for x in matches
+                                  if x.group(2).lower().replace(" ", "").rstrip(".")
+                                  in ("%", "percent")), None)
+                    if m is None:
+                        m = matches[0]
+                    gap = m.start()
                     value = normalize_value(m.group(1), m.group(2), kpi.unit)
                     if value is None:
                         continue
                     confidence = round(base_confidence - min(gap, 30) * 0.005, 3)
                     out.append(Candidate(code, value, page.number, self.method,
                                          confidence, segment.strip()[:300]))
-                    break  # longest-alias-first index: first hit per segment wins
         return out
 
 
@@ -129,27 +148,99 @@ class TableExtractor:
 
 
 class LlmExtractor:
-    """Pluggable LLM fallback — OFF by default.
+    """Claude-based fallback extractor — OFF by default (see Settings.llm_extraction_enabled).
 
-    Integration point for a Claude-based extractor targeting layouts the
-    deterministic strategies miss (narrative-embedded figures, exotic table
-    structures). Contract for any future implementation:
+    Targets layouts the deterministic strategies miss (narrative-embedded
+    figures, exotic table structures). Trust constraints, enforced here and
+    non-negotiable:
 
-    - prompt with the registry's KPI definitions and the page text;
-    - require page number + verbatim source quote for every value (lineage);
-    - cap confidence at ``max_confidence`` so deterministic hits always win;
-    - validate the quote actually appears on the cited page before accepting.
-
-    Kept as an explicit no-op rather than deleted: the pipeline composes
-    extractors, and this preserves the seam where AI earns its place only
-    after the deterministic baseline is exhausted.
+    - every value must cite a page number and a verbatim quote;
+    - the quote is verified to actually appear on the cited page — a value
+      with a fabricated or paraphrased quote is dropped;
+    - confidence is capped at ``max_confidence`` (0.6), below the table
+      extractor (0.9) and rule-based extractor (~0.75), so a deterministic
+      hit always outranks an LLM reading of the same figure;
+    - any API/parsing failure degrades to "no candidates", never breaks the
+      deterministic pipeline.
     """
 
     method = "llm"
     max_confidence = 0.6
+    max_pages = 40
+    max_chars_per_page = 4000
+
+    def __init__(self, client=None, model: str | None = None):
+        # client injectable for tests; lazily built from the anthropic SDK
+        # (optional dependency: pip install -e ".[llm]") when enabled.
+        self._client = client
+        self._model = model
+
+    def _get_client(self):
+        if self._client is not None:
+            return self._client
+        try:
+            import anthropic
+            self._client = anthropic.Anthropic()
+        except Exception:
+            return None
+        return self._client
+
+    def _prompt(self, pages: list[PageContent]) -> str:
+        kpi_lines = "\n".join(
+            f"- {k.code}: {k.name} (unit: {k.unit})" for k in KPI_REGISTRY.values())
+        page_blocks = "\n\n".join(
+            f"[PAGE {p.number}]\n{p.text[:self.max_chars_per_page]}"
+            for p in pages[:self.max_pages] if p.text.strip())
+        return (
+            "You extract banking KPIs from annual-report text. Return ONLY a JSON "
+            "array; no prose. Each element: {\"kpi_code\": one of the codes below, "
+            "\"value\": number, \"unit\": the unit word as printed (e.g. \"crore\", "
+            "\"%\", \"bps\", or \"\"), \"page\": page number, \"quote\": VERBATIM "
+            "sentence or table-row fragment containing the figure}. Only include "
+            "figures explicitly present in the text for the CURRENT reporting year; "
+            "never estimate, never compute.\n\nKPI codes:\n"
+            f"{kpi_lines}\n\nDocument pages:\n{page_blocks}"
+        )
 
     def extract(self, pages: list[PageContent]) -> list[Candidate]:
-        return []
+        client = self._get_client()
+        if client is None or not pages:
+            return []
+        try:
+            from app.core.config import settings
+            response = client.messages.create(
+                model=self._model or settings.llm_model,
+                max_tokens=4096,
+                messages=[{"role": "user", "content": self._prompt(pages)}],
+            )
+            raw = response.content[0].text
+            start, end = raw.find("["), raw.rfind("]")
+            items = json.loads(raw[start:end + 1])
+        except Exception:
+            return []
+
+        page_texts = {p.number: " ".join(p.text.split()) for p in pages}
+        out: list[Candidate] = []
+        for item in items if isinstance(items, list) else []:
+            try:
+                code = item["kpi_code"]
+                page_no = int(item["page"])
+                quote = str(item.get("quote", "")).strip()
+            except (KeyError, TypeError, ValueError):
+                continue
+            kpi = KPI_REGISTRY.get(code)
+            page_text = page_texts.get(page_no)
+            if kpi is None or page_text is None or not quote:
+                continue
+            if " ".join(quote.split()) not in page_text:
+                continue  # fabricated/paraphrased citation — reject
+            value = normalize_value(str(item.get("value", "")), str(item.get("unit", "")),
+                                    kpi.unit)
+            if value is None:
+                continue
+            out.append(Candidate(code, value, page_no, self.method,
+                                 self.max_confidence, quote[:300]))
+        return out
 
 
 DEFAULT_EXTRACTORS = (TableExtractor(), RuleBasedExtractor())

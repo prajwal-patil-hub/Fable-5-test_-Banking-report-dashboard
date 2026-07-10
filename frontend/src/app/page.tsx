@@ -78,10 +78,11 @@ function ValidationStrip({ bank, fiscalYear }: { bank: Bank; fiscalYear: string 
 
 function OverviewBody({ bank, fiscalYear }: { bank: Bank; fiscalYear: string }) {
   const [selectedKpi, setSelectedKpi] = useState<KpiValue | null>(null);
+  const { currency } = useBank();
 
   const kpisState = useApi(
-    () => api.getKpis(bank.id, fiscalYear),
-    [bank.id, fiscalYear],
+    () => api.getKpis(bank.id, fiscalYear, currency),
+    [bank.id, fiscalYear, currency],
   );
   const narrativeState = useApi(
     () => api.getNarrative(bank.id, fiscalYear),
