@@ -148,11 +148,19 @@ class TableExtractor:
 
 
 class LlmExtractor:
-    """Claude-based fallback extractor — OFF by default (see Settings.llm_extraction_enabled).
+    """LLM fallback extractor — OFF by default (see Settings.llm_extraction_enabled).
+
+    Two providers, selected by ``Settings.llm_provider``:
+
+    - ``anthropic`` — Claude via the anthropic SDK (needs ANTHROPIC_API_KEY
+      and ``pip install -e ".[llm]"``);
+    - ``ollama`` — a local model served by Ollama (http://localhost:11434 by
+      default). No API key, no extra Python dependency (stdlib HTTP), fully
+      offline — suited to a MacBook running e.g. ``llama3.1:8b``.
 
     Targets layouts the deterministic strategies miss (narrative-embedded
     figures, exotic table structures). Trust constraints, enforced here and
-    non-negotiable:
+    non-negotiable regardless of provider:
 
     - every value must cite a page number and a verbatim quote;
     - the quote is verified to actually appear on the cited page — a value
@@ -169,6 +177,9 @@ class LlmExtractor:
     max_pages = 40
     max_chars_per_page = 4000
 
+    ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-5"
+    OLLAMA_DEFAULT_MODEL = "llama3.1:8b"
+
     def __init__(self, client=None, model: str | None = None):
         # client injectable for tests; lazily built from the anthropic SDK
         # (optional dependency: pip install -e ".[llm]") when enabled.
@@ -184,6 +195,51 @@ class LlmExtractor:
         except Exception:
             return None
         return self._client
+
+    def _resolve_model(self, settings) -> str:
+        if self._model:
+            return self._model
+        if settings.llm_model:
+            return settings.llm_model
+        return (self.OLLAMA_DEFAULT_MODEL if settings.llm_provider == "ollama"
+                else self.ANTHROPIC_DEFAULT_MODEL)
+
+    def _ollama_request(self, url: str, payload: dict) -> dict:
+        """One POST to the local Ollama server (stdlib HTTP; seam for tests).
+        Local models are slow on first token — generous timeout."""
+        import urllib.request
+        req = urllib.request.Request(
+            url, data=json.dumps(payload).encode(),
+            headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=300) as resp:  # noqa: S310 — localhost
+            return json.loads(resp.read().decode())
+
+    def _complete_ollama(self, prompt: str, settings) -> str | None:
+        payload = {
+            "model": self._resolve_model(settings),
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "format": "json",  # constrain local models to valid JSON
+            "options": {"temperature": 0},
+        }
+        data = self._ollama_request(
+            f"{settings.ollama_base_url.rstrip('/')}/api/chat", payload)
+        return (data.get("message") or {}).get("content")
+
+    def _complete(self, prompt: str) -> str | None:
+        from app.core.config import settings
+        # An injected client (tests) always wins; otherwise route by provider.
+        if self._client is None and settings.llm_provider == "ollama":
+            return self._complete_ollama(prompt, settings)
+        client = self._get_client()
+        if client is None:
+            return None
+        response = client.messages.create(
+            model=self._resolve_model(settings),
+            max_tokens=4096,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text
 
     def _prompt(self, pages: list[PageContent]) -> str:
         kpi_lines = "\n".join(
@@ -203,17 +259,12 @@ class LlmExtractor:
         )
 
     def extract(self, pages: list[PageContent]) -> list[Candidate]:
-        client = self._get_client()
-        if client is None or not pages:
+        if not pages:
             return []
         try:
-            from app.core.config import settings
-            response = client.messages.create(
-                model=self._model or settings.llm_model,
-                max_tokens=4096,
-                messages=[{"role": "user", "content": self._prompt(pages)}],
-            )
-            raw = response.content[0].text
+            raw = self._complete(self._prompt(pages))
+            if not raw:
+                return []
             start, end = raw.find("["), raw.rfind("]")
             items = json.loads(raw[start:end + 1])
         except Exception:

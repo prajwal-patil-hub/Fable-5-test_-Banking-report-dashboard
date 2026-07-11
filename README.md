@@ -63,6 +63,28 @@ Watch extraction → unit normalisation → derived KPIs → validation run, the
 open the bank's dashboard for the new fiscal year and download the exports
 from the Reports page.
 
+## Optional: local LLM fallback with Ollama (great on a MacBook)
+
+The deterministic extractors handle standard annual reports on their own. For
+exotic layouts you can enable the LLM fallback against a **local** model — no
+API key, fully offline, same trust rules (page + verbatim quote required,
+confidence capped below deterministic extraction):
+
+```bash
+brew install ollama            # macOS
+ollama serve                   # or: brew services start ollama
+ollama pull llama3.1:8b
+
+export SOVEREIGN_LLM_EXTRACTION_ENABLED=true
+export SOVEREIGN_LLM_PROVIDER=ollama
+# optional: SOVEREIGN_LLM_MODEL=llama3.1:8b  SOVEREIGN_OLLAMA_BASE_URL=http://localhost:11434
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+To use Claude instead: `pip install -e ".[llm]"`, set `ANTHROPIC_API_KEY`,
+and leave `SOVEREIGN_LLM_PROVIDER=anthropic`. All knobs are documented in
+`backend/.env.example`.
+
 ## Tests
 
 ```bash

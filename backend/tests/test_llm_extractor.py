@@ -71,6 +71,47 @@ def test_malformed_response_degrades_to_nothing():
     assert LlmExtractor(client=BrokenClient()).extract([PAGE]) == []
 
 
+def test_ollama_provider_path(monkeypatch):
+    """provider=ollama routes through the local HTTP seam — same trust
+    constraints, no anthropic SDK involved."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "llm_provider", "ollama")
+    monkeypatch.setattr(settings, "llm_model", None)
+
+    good = {"kpi_code": "roe", "value": 15.1, "unit": "%", "page": 7,
+            "quote": "Return on Equity was 15.1% for the year."}
+    fabricated = {"kpi_code": "gnpa", "value": 5400, "unit": "crore", "page": 7,
+                  "quote": "GNPA printed a record low this fiscal."}  # not on page
+    captured = {}
+
+    def fake_request(self, url, payload):
+        captured["url"] = url
+        captured["payload"] = payload
+        return {"message": {"content": json.dumps([good, fabricated])}}
+
+    monkeypatch.setattr(LlmExtractor, "_ollama_request", fake_request)
+
+    found = LlmExtractor().extract([PAGE])
+    assert [c.kpi_code for c in found] == ["roe"]  # fabricated quote rejected
+    assert found[0].confidence == 0.6  # cap holds for local models too
+    assert captured["url"] == "http://localhost:11434/api/chat"
+    assert captured["payload"]["model"] == LlmExtractor.OLLAMA_DEFAULT_MODEL
+    assert captured["payload"]["stream"] is False
+
+
+def test_ollama_server_down_degrades_to_nothing(monkeypatch):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "llm_provider", "ollama")
+
+    def broken(self, url, payload):
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(LlmExtractor, "_ollama_request", broken)
+    assert LlmExtractor().extract([PAGE]) == []
+
+
 def test_deterministic_extraction_outranks_llm():
     table_page = PageContent(number=3, text="", tables=[[
         ["Particulars", "FY2025"], ["Gross NPA", "5,400"]]])

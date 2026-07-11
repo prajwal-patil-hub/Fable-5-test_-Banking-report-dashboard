@@ -18,10 +18,17 @@ class Settings(BaseSettings):
     api_key: str | None = None
     seed_demo_data: bool = True
     # LLM fallback extraction (document_intelligence.extractors.LlmExtractor).
-    # Off by default — deterministic-first is a product principle. Requires
-    # ANTHROPIC_API_KEY in the environment and `pip install -e ".[llm]"`.
+    # Off by default — deterministic-first is a product principle.
+    # Providers:
+    #   anthropic (default) — needs ANTHROPIC_API_KEY + `pip install -e ".[llm]"`
+    #   ollama              — local model, no API key, no extra deps
+    #                         (SOVEREIGN_LLM_PROVIDER=ollama; model pulled via `ollama pull`)
     llm_extraction_enabled: bool = False
-    llm_model: str = "claude-sonnet-5"
+    llm_provider: str = "anthropic"  # anthropic | ollama
+    # Model id; defaults per provider when unset
+    # (anthropic: claude-sonnet-5, ollama: llama3.1:8b).
+    llm_model: str | None = None
+    ollama_base_url: str = "http://localhost:11434"
     # Display-only conversion rate for the currency layer (INR per USD).
     # Warehouse storage is always ₹ crore; USD is computed at read time.
     usd_inr_rate: float = 83.5
