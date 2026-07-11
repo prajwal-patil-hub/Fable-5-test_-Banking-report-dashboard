@@ -30,14 +30,14 @@ def test_benchmark_summary_covers_benchmarkable_kpis(seeded_db):
 
 
 def test_bank_position(seeded_db):
-    mrdn = _bank(seeded_db, "MRDN")
+    mrdn = _bank(seeded_db, "SVRN")
     pos = bank_position(seeded_db, mrdn.id, "roe", "FY2025")
     assert pos is not None and pos["peer_count"] == 4
     assert 1 <= pos["rank"] <= 4
 
 
 def test_narrative_structure_and_grounding(seeded_db):
-    mrdn = _bank(seeded_db, "MRDN")
+    mrdn = _bank(seeded_db, "SVRN")
     narrative = build_narrative(seeded_db, mrdn, "FY2025")
     modules = [s["module"] for s in narrative["sections"]]
     assert modules == ["financial", "asset_quality", "capital",
@@ -49,8 +49,8 @@ def test_narrative_structure_and_grounding(seeded_db):
 
 
 def test_narrative_recommends_on_weakness(seeded_db):
-    # Crestline: PCR < 70 and thin capital must surface recommendations
-    crst = _bank(seeded_db, "CRST")
+    # Nalanda (challenger): PCR < 70 and thin capital must surface recommendations
+    crst = _bank(seeded_db, "NLND")
     narrative = build_narrative(seeded_db, crst, "FY2025")
     aq = next(s for s in narrative["sections"] if s["module"] == "asset_quality")
     assert any("70%" in r for r in aq["recommendations"])

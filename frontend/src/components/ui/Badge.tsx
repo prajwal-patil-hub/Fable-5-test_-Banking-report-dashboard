@@ -5,7 +5,7 @@ const TONES = {
   bronze: "border-bronze/60 text-bronze",
   success: "border-success/60 text-success",
   warning: "border-warning/60 text-warning",
-  risk: "border-risk/70 text-[#C98A8A]",
+  risk: "border-risk/70 text-risk",
   neutral: "border-border text-text-secondary",
 } as const;
 

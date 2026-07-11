@@ -4,8 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Sovereign — a Banking Annual Report Intelligence Platform. PDF banking
-documents → validated KPI warehouse → benchmarking/narrative analytics →
+Sovereign — an Indian Banking Annual Report Intelligence Platform (₹ crore
+units, RBI/Basel III India conventions, Indian FY). PDF banking documents → validated KPI warehouse → benchmarking/narrative analytics →
 dashboard + PDF/PPTX/Excel deliverables. Monorepo: FastAPI backend
 (`backend/`), Next.js 15 frontend (`frontend/`).
 
@@ -69,8 +69,10 @@ Read `docs/ARCHITECTURE.md` for rationale. The load-bearing rules:
   `modules/validation/engine.py`; each declares the `kpi_codes` it badges.
 - Demo/seed data is synthetic and flagged `is_demo` — never seed real banks'
   figures.
-- Frontend design system ("Old Money") is defined as Tailwind theme tokens in
-  `frontend/src/app/globals.css` and mirrored for exports in
-  `backend/app/modules/export/theme.py`; keep them in sync.
+- Frontend design system ("Old Money — Daylight", light ivory/gold) lives as
+  Tailwind theme tokens in `frontend/src/app/globals.css` plus chart constants
+  in `frontend/src/components/charts/theme.ts`. Exports
+  (`backend/app/modules/export/theme.py`) deliberately keep the dark boardroom
+  variant of the same palette.
 - Frontend data fetching is client-side only (`npm run build` must succeed
   with no backend running).

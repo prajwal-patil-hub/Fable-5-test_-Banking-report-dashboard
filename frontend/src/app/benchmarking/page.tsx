@@ -16,6 +16,7 @@ import { ChartSkeleton, Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PeerBarChart } from "@/components/charts/PeerBarChart";
 import { PageGate } from "@/components/PageGate";
+import { SEGMENT_LABELS } from "@/lib/segments";
 
 function SummaryTile({
   kpi,
@@ -220,7 +221,7 @@ function BenchmarkingBody({
                   <option value="">All banks</option>
                   {segments.map((s) => (
                     <option key={s} value={s}>
-                      {s.charAt(0).toUpperCase() + s.slice(1)}
+                      {SEGMENT_LABELS[s] ?? s}
                     </option>
                   ))}
                 </select>
@@ -271,7 +272,7 @@ function BenchmarkingBody({
       <section>
         <SectionLabel className="mb-4">
           Peer Standing —{" "}
-          {segment ? `${segment.toUpperCase()} BANKS` : "All Indicators"}
+          {segment ? (SEGMENT_LABELS[segment] ?? segment) : "All Indicators"}
         </SectionLabel>
         {summaryState.loading ? (
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">

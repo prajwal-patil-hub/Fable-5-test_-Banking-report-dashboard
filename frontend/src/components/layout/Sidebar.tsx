@@ -45,7 +45,7 @@ export function Sidebar() {
           SOVEREIGN
         </div>
         <div className="mt-1.5 text-[10px] uppercase tracking-[0.3em] text-text-secondary">
-          Banking Intelligence
+          Indian Banking Intelligence
         </div>
       </Link>
 

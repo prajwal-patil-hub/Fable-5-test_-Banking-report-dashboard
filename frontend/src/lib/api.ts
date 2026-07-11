@@ -79,6 +79,8 @@ export interface Bank {
   name: string;
   segment: BankSegment;
   is_demo: boolean;
+  /** False until at least one document/figure exists for this institution. */
+  has_data: boolean;
 }
 
 export interface BanksResponse {
@@ -259,6 +261,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
   // Banks & periods
   getBanks: () => request<BanksResponse>("/api/banks"),
+  createBank: (name: string, segment: BankSegment) =>
+    request<Bank>("/api/banks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, segment }),
+    }),
   getYears: (bankId: number) =>
     request<YearsResponse>(`/api/banks/${bankId}/years`),
 

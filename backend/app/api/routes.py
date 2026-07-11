@@ -6,12 +6,13 @@ import io
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.db import get_db
-from app.models import Bank, Document, ValidationResult
+from app.models import AuditLog, Bank, Document, KpiValue, ValidationResult
 from app.modules.benchmarking.engine import benchmark_kpi, benchmark_summary
 from app.modules.document_intelligence.pipeline import ingest_pdf
 from app.modules.export.excel import build_excel
@@ -36,12 +37,49 @@ def health():
     return {"status": "ok", "version": settings.version}
 
 
+VALID_SEGMENTS = ("private", "public", "sfb", "foreign", "universal")
+
+
 @router.get("/banks")
 def list_banks(db: Session = Depends(get_db)):
     banks = db.execute(select(Bank).order_by(Bank.name)).scalars().all()
+    with_data = set(db.execute(select(KpiValue.bank_id).distinct()).scalars().all())
     return {"banks": [{"id": b.id, "code": b.code, "name": b.name,
-                       "segment": b.segment, "is_demo": b.is_demo}
+                       "segment": b.segment, "is_demo": b.is_demo,
+                       "has_data": b.id in with_data}
                       for b in banks]}
+
+
+class BankCreate(BaseModel):
+    name: str
+    segment: str = "private"
+    code: str | None = None
+
+
+@router.post("/banks", status_code=201)
+def create_bank(payload: BankCreate, db: Session = Depends(get_db)):
+    """Register an institution not in the seeded roster; its figures arrive
+    via document upload."""
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(422, "Bank name must not be empty")
+    if payload.segment not in VALID_SEGMENTS:
+        raise HTTPException(422, f"segment must be one of {', '.join(VALID_SEGMENTS)}")
+    if db.execute(select(Bank).where(Bank.name.ilike(name))).scalar_one_or_none():
+        raise HTTPException(409, f"Bank named '{name}' already exists")
+
+    code = (payload.code or "".join(w[0] for w in name.split() if w[:1].isalpha())).upper()[:20]
+    base_code, suffix = code or "BANK", 2
+    while db.execute(select(Bank).where(Bank.code == code)).scalar_one_or_none():
+        code = f"{base_code}{suffix}"[:20]
+        suffix += 1
+
+    bank = Bank(code=code, name=name, segment=payload.segment, is_demo=False)
+    db.add(bank)
+    db.add(AuditLog(action="bank_created", detail=f"name={name} segment={payload.segment}"))
+    db.commit()
+    return {"id": bank.id, "code": bank.code, "name": bank.name,
+            "segment": bank.segment, "is_demo": bank.is_demo, "has_data": False}
 
 
 @router.get("/banks/{bank_id}/years")

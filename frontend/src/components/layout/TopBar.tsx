@@ -2,6 +2,7 @@
 
 import { useBank } from "@/context/BankContext";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { SEGMENT_LABELS, SEGMENT_ORDER } from "@/lib/segments";
 
 function SelectShell({
   label,
@@ -44,7 +45,7 @@ export function TopBar() {
       <div className="flex items-center gap-6">
         {error && banks.length === 0 ? (
           <span
-            className="max-w-md truncate text-xs text-[#C98A8A]"
+            className="max-w-md truncate text-xs text-risk"
             title={error}
           >
             {error}
@@ -62,11 +63,23 @@ export function TopBar() {
                 value={bank?.id ?? ""}
                 onChange={(e) => setBankId(Number(e.target.value))}
               >
-                {banks.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                    {b.is_demo ? " (demo)" : ""}
-                  </option>
+                {SEGMENT_ORDER.filter((seg) =>
+                  banks.some((b) => b.segment === seg),
+                ).map((seg) => (
+                  <optgroup key={seg} label={SEGMENT_LABELS[seg]}>
+                    {banks
+                      .filter((b) => b.segment === seg)
+                      .map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                          {b.is_demo
+                            ? " (demo)"
+                            : b.has_data
+                              ? ""
+                              : " — no data yet"}
+                        </option>
+                      ))}
+                  </optgroup>
                 ))}
               </select>
             </SelectShell>

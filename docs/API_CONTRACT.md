@@ -47,8 +47,14 @@ type KpiValue = {
 ### Banks & periods
 
 - `GET /api/banks`
-  → `{ banks: [{ id, code, name, segment, is_demo: boolean }] }`
+  → `{ banks: [{ id, code, name, segment, is_demo: boolean, has_data: boolean }] }`
   `segment`: peer-cohort tag (`"private" | "public" | "sfb" | "foreign" | "universal"`).
+  `has_data`: false until at least one fact exists for the bank (the seeded
+  Indian roster ships institutions only — figures arrive via document upload).
+- `POST /api/banks` — register an institution not in the roster.
+  Body `{ name, segment, code? }` → `201` with the bank shape above
+  (code auto-generated from initials when omitted). `409` duplicate name,
+  `422` invalid segment/empty name.
 - `GET /api/banks/{bank_id}/years`
   → `{ fiscal_years: string[] }` (ascending)
 

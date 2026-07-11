@@ -6,7 +6,7 @@ from app.modules.kpi_warehouse import service as warehouse
 
 
 def _bank(db):
-    return db.execute(select(Bank).where(Bank.code == "MRDN")).scalar_one()
+    return db.execute(select(Bank).where(Bank.code == "SVRN")).scalar_one()
 
 
 def test_usd_converts_only_monetary_kpis(seeded_db):

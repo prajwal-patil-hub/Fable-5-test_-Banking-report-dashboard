@@ -15,7 +15,7 @@ export function ErrorState({
         compact ? "gap-2 p-5" : "gap-3 p-10"
       }`}
     >
-      <div className="text-xs uppercase tracking-[0.2em] text-[#C98A8A]">
+      <div className="text-xs uppercase tracking-[0.2em] text-risk">
         Connection Interrupted
       </div>
       <p

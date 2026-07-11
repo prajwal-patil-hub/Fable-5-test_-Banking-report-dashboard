@@ -15,6 +15,8 @@ import {
   AXIS_TICK,
   CHART_COLORS,
   CURSOR_STYLE,
+  DOT_FILL,
+  GRID_STROKE,
   TOOLTIP_LABEL_STYLE,
   TOOLTIP_STYLE,
 } from "./theme";
@@ -67,14 +69,14 @@ export function TrendChart({ series }: { series: KpiHistoryResponse[] }) {
             ))}
           </defs>
           <CartesianGrid
-            stroke="#4B382F"
-            strokeOpacity={0.35}
+            stroke={GRID_STROKE}
+            strokeOpacity={0.55}
             vertical={false}
           />
           <XAxis
             dataKey="fiscal_year"
             tick={AXIS_TICK}
-            axisLine={{ stroke: "#4B382F" }}
+            axisLine={{ stroke: GRID_STROKE }}
             tickLine={false}
           />
           <YAxis
@@ -108,7 +110,7 @@ export function TrendChart({ series }: { series: KpiHistoryResponse[] }) {
               fill={`url(#trend-${s.kpi_code})`}
               dot={{
                 r: 2.5,
-                fill: "#1A120B",
+                fill: DOT_FILL,
                 stroke: CHART_COLORS[i % CHART_COLORS.length],
                 strokeWidth: 1,
               }}

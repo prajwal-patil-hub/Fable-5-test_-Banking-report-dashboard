@@ -16,7 +16,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Sovereign — Banking Intelligence",
+  title: "Sovereign — Indian Banking Intelligence",
   description:
     "Annual report intelligence platform for banking executives: KPIs, lineage, validation, benchmarking and executive deliverables.",
 };
@@ -35,7 +35,7 @@ export default function RootLayout({
             <TopBar />
             <main className="flex-1 px-10 py-10">{children}</main>
             <footer className="border-t border-border px-10 py-5 text-[10px] uppercase tracking-[0.25em] text-text-secondary/60">
-              Sovereign · Banking Annual Report Intelligence · Figures in ₹
+              Sovereign · Indian Banking Annual Report Intelligence · Figures in ₹
               crore unless stated
             </footer>
           </div>

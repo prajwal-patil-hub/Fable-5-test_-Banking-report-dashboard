@@ -2,8 +2,8 @@
 
 ![Sovereign flow](docs/assets/flow.png)
 
-Transforms unstructured banking documents (annual reports, Basel disclosures,
-ESG reports) into a validated KPI warehouse, peer benchmarking, executive
+Built for **Indian banks**: transforms unstructured banking documents (annual
+reports, Basel III Pillar 3 disclosures, ESG/BRSR reports) into a validated KPI warehouse, peer benchmarking, executive
 narrative, an interactive dashboard, and boardroom-ready deliverables
 (PDF report, PowerPoint deck, Excel data pack).
 
@@ -37,7 +37,7 @@ python -m venv .venv && .venv/bin/pip install -e ".[dev]"   # or: uv venv && uv 
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
-First boot creates a SQLite database and seeds four synthetic demo banks ×
+First boot creates a SQLite database and seeds four synthetic demo Indian banks ×
 three fiscal years (clearly flagged `is_demo`). Set
 `SOVEREIGN_DATABASE_URL=postgresql+psycopg://...` for PostgreSQL and
 `SOVEREIGN_SEED_DEMO_DATA=false` to disable seeding. API docs: http://localhost:8000/docs

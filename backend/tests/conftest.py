@@ -28,3 +28,27 @@ def seeded_db(db):
     from app.seeds.demo import seed_demo
     seed_demo(db)
     return db
+
+
+@pytest.fixture()
+def client(db, monkeypatch):
+    """TestClient over the real app wired to the in-memory DB, with the
+    Indian roster + synthetic demo data seeded (mirrors production startup)."""
+    from fastapi.testclient import TestClient
+
+    from app import main
+    from app.core import db as core_db
+    from app.seeds.demo import seed_demo
+    from app.seeds.roster import seed_indian_roster
+
+    monkeypatch.setattr(core_db, "SessionLocal", lambda: db)
+
+    def override_get_db():
+        yield db
+
+    main.app.dependency_overrides[core_db.get_db] = override_get_db
+    seed_indian_roster(db)
+    seed_demo(db)
+    with TestClient(main.app, raise_server_exceptions=True) as c:
+        yield c
+    main.app.dependency_overrides.clear()

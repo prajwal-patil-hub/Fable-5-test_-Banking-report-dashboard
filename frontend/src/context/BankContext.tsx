@@ -51,11 +51,12 @@ export function BankProvider({ children }: { children: ReactNode }) {
       .then((res) => {
         if (!alive) return;
         setBanks(res.banks);
-        // Default to the first bank if nothing selected yet.
+        // Default to the first bank WITH data (the roster contains many
+        // institutions that are empty until a report is uploaded).
         setBankId((current) =>
           current !== null && res.banks.some((b) => b.id === current)
             ? current
-            : (res.banks[0]?.id ?? null),
+            : ((res.banks.find((b) => b.has_data) ?? res.banks[0])?.id ?? null),
         );
         setLoadingBanks(false);
       })

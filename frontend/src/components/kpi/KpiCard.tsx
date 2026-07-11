@@ -6,7 +6,7 @@ import { ValidationBadge } from "@/components/ui/Badge";
 
 const TONE_CLASS = {
   success: "text-success",
-  risk: "text-[#C98A8A]",
+  risk: "text-risk",
   neutral: "text-text-secondary",
 } as const;
 

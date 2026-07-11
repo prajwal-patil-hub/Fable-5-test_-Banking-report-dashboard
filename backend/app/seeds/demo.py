@@ -4,11 +4,11 @@ The four institutions are deliberately distinct strategic archetypes so every
 analytic surface (benchmarking spread, validation warnings, narrative
 recommendations) has signal out of the box:
 
-- MRDN Meridian Bank        — high-performing private franchise
-- ALBN Albion National Bank — large legacy bank: cost-heavy, NPA overhang
-- CRST Crestline Bank       — fast-growing challenger: thin capital, thin PCR,
-                              credit growth outrunning deposits (trips rules)
-- HBRV Harborview Bank      — conservative fortress balance sheet
+- SVRN Suvarna Bank           — high-performing private-sector franchise
+- BHNB Bharat National Bank   — large PSU: cost-heavy, NPA overhang, improving
+- NLND Nalanda Bank           — fast-growing private challenger: thin capital,
+                              thin PCR, credit outrunning deposits (trips rules)
+- HMGR Himgiri Bank           — conservative fortress balance sheet
 
 All figures are synthetic (banks flagged ``is_demo``); they are calibrated to
 plausible Indian mid/large-bank magnitudes so ratios and narratives read true.
@@ -30,8 +30,8 @@ FISCAL_YEARS = ["FY2023", "FY2024", "FY2025"]
 # Per-bank: FY2023 base values, then either multiplicative growth ("g", %/yr)
 # or additive drift ("d", units/yr) per KPI across the three years.
 PROFILES: dict[str, dict] = {
-    "MRDN": {
-        "name": "Meridian Bank", "segment": "private",
+    "SVRN": {
+        "name": "Suvarna Bank", "segment": "private",
         "base": {
             "total_income": 52000, "nii": 21000, "other_income": 9000, "nim": 4.10,
             "operating_expenses": 12500, "operating_profit": 17500, "pat": 9800,
@@ -52,8 +52,8 @@ PROFILES: dict[str, dict] = {
                   "tier1_ratio": 0.2, "crar": 0.1, "lcr": 2, "nsfr": 1,
                   "digital_txn_share": 3, "women_workforce_pct": 1.0},
     },
-    "ALBN": {
-        "name": "Albion National Bank", "segment": "public",
+    "BHNB": {
+        "name": "Bharat National Bank", "segment": "public",
         "base": {
             "total_income": 98000, "nii": 36000, "other_income": 14000, "nim": 2.85,
             "operating_expenses": 28500, "operating_profit": 21500, "pat": 8200,
@@ -74,8 +74,8 @@ PROFILES: dict[str, dict] = {
                   "tier1_ratio": 0.4, "crar": 0.3, "lcr": -2, "nsfr": -1,
                   "digital_txn_share": 4, "women_workforce_pct": 0.7},
     },
-    "CRST": {
-        "name": "Crestline Bank", "segment": "private",
+    "NLND": {
+        "name": "Nalanda Bank", "segment": "private",
         "base": {
             "total_income": 21000, "nii": 8200, "other_income": 3600, "nim": 3.95,
             "operating_expenses": 6100, "operating_profit": 5700, "pat": 2900,
@@ -96,8 +96,8 @@ PROFILES: dict[str, dict] = {
                   "tier1_ratio": -0.5, "crar": -0.5, "lcr": -3, "nsfr": -2,
                   "digital_txn_share": 2, "women_workforce_pct": 1.2},
     },
-    "HBRV": {
-        "name": "Harborview Bank", "segment": "private",
+    "HMGR": {
+        "name": "Himgiri Bank", "segment": "private",
         "base": {
             "total_income": 34000, "nii": 14800, "other_income": 4900, "nim": 3.70,
             "operating_expenses": 8900, "operating_profit": 10800, "pat": 6100,

@@ -13,6 +13,9 @@ import type { BenchmarkPeer, KpiUnit } from "@/lib/api";
 import { formatValue } from "@/lib/format";
 import {
   AXIS_TICK,
+  BAR_PEER,
+  BAR_SELECTED,
+  GRID_STROKE,
   TOOLTIP_LABEL_STYLE,
   TOOLTIP_STYLE,
 } from "./theme";
@@ -49,13 +52,13 @@ export function PeerBarChart({
             dataKey="bank_code"
             tick={AXIS_TICK}
             width={64}
-            axisLine={{ stroke: "#4B382F" }}
+            axisLine={{ stroke: GRID_STROKE }}
             tickLine={false}
           />
           <Tooltip
             contentStyle={TOOLTIP_STYLE}
             labelStyle={TOOLTIP_LABEL_STYLE}
-            cursor={{ fill: "#4B382F", fillOpacity: 0.2 }}
+            cursor={{ fill: GRID_STROKE, fillOpacity: 0.35 }}
             formatter={(value: number | string) => [
               typeof value === "number" ? formatValue(value, unit) : "—",
               "Value",
@@ -71,8 +74,8 @@ export function PeerBarChart({
             {data.map((peer) => (
               <Cell
                 key={peer.bank_id}
-                fill={peer.bank_id === selectedBankId ? "#C7A56A" : "#9C7B4F"}
-                fillOpacity={peer.bank_id === selectedBankId ? 1 : 0.65}
+                fill={peer.bank_id === selectedBankId ? BAR_SELECTED : BAR_PEER}
+                fillOpacity={peer.bank_id === selectedBankId ? 1 : 0.9}
               />
             ))}
           </Bar>

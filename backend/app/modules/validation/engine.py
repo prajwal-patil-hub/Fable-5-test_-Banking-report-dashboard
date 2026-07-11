@@ -95,14 +95,19 @@ def _casa_consistency(v: Values, _p: Values) -> str | None:
     return None
 
 
-def _crar_regulatory(v: Values, _p: Values) -> str | None:
-    crar = v.get("crar")
-    if crar is None:
+def _regulatory_floor(code: str, floor: float, label: str, reference: str):
+    """RBI / Basel III (India) minimums, incl. capital conservation buffer
+    where applicable. A breach is flagged for review — it may equally signal
+    an extraction error or a genuine capital/liquidity problem."""
+    def check(v: Values, _p: Values) -> str | None:
+        val = v.get(code)
+        if val is None:
+            return None
+        if val < floor:
+            return (f"{label} of {val}% is below the RBI minimum of {floor}% "
+                    f"({reference}).")
         return None
-    if crar < 11.5:
-        return (f"CRAR of {crar}% is below the Basel III India comfort threshold of 11.5% "
-                f"(incl. capital conservation buffer).")
-    return None
+    return check
 
 
 def _yoy_jump(v: Values, p: Values) -> str | None:
@@ -145,8 +150,26 @@ RULES: list[Rule] = [
          ("gnpa_ratio", "gnpa", "gross_advances"), _gnpa_ratio_consistency),
     Rule("casa_consistency", "Reported CASA ratio consistent with components", "warning",
          ("casa_ratio", "casa_deposits", "deposits"), _casa_consistency),
-    Rule("crar_regulatory_floor", "CRAR vs Basel III India threshold", "info",
-         ("crar",), _crar_regulatory),
+    # RBI / Basel III (India) regulatory floors — Master Circular on Basel III
+    # Capital Regulations and the LCR/NSFR frameworks.
+    Rule("cet1_regulatory_floor", "CET1 ≥ 8.0% (5.5% minimum + 2.5% CCB)", "warning",
+         ("cet1_ratio",),
+         _regulatory_floor("cet1_ratio", 8.0, "CET1 ratio",
+                           "Basel III India: 5.5% + 2.5% capital conservation buffer")),
+    Rule("tier1_regulatory_floor", "Tier 1 ≥ 9.5% (7.0% minimum + 2.5% CCB)", "warning",
+         ("tier1_ratio",),
+         _regulatory_floor("tier1_ratio", 9.5, "Tier 1 capital ratio",
+                           "Basel III India: 7.0% + 2.5% capital conservation buffer")),
+    Rule("crar_regulatory_floor", "CRAR ≥ 11.5% (9.0% minimum + 2.5% CCB)", "warning",
+         ("crar",),
+         _regulatory_floor("crar", 11.5, "CRAR",
+                           "Basel III India: 9.0% + 2.5% capital conservation buffer")),
+    Rule("lcr_regulatory_floor", "Liquidity Coverage Ratio ≥ 100%", "warning",
+         ("lcr",),
+         _regulatory_floor("lcr", 100.0, "LCR", "RBI LCR framework")),
+    Rule("nsfr_regulatory_floor", "Net Stable Funding Ratio ≥ 100%", "warning",
+         ("nsfr",),
+         _regulatory_floor("nsfr", 100.0, "NSFR", "RBI NSFR framework")),
     Rule("yoy_plausibility", "Year-over-year movement plausibility", "warning",
          (), _yoy_jump),
     Rule("headline_completeness", "Headline KPI completeness", "warning",

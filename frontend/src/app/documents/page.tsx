@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { api, type UploadResponse } from "@/lib/api";
+import { api, type BankSegment, type UploadResponse } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import { useBank } from "@/context/BankContext";
 import { formatCount, formatDateTime, humanize } from "@/lib/format";
+import { SEGMENT_LABELS, SEGMENT_ORDER } from "@/lib/segments";
 import { Card, PageHeading, SectionLabel } from "@/components/ui/Card";
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -146,7 +147,7 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
       </form>
 
       {error ? (
-        <p className="mt-4 border border-risk/50 bg-risk/10 px-4 py-3 text-xs text-[#C98A8A]">
+        <p className="mt-4 border border-risk/50 bg-risk/10 px-4 py-3 text-xs text-risk">
           {error}
         </p>
       ) : null}
@@ -167,7 +168,7 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
               [
                 ["Passed", result.validation.passed, "text-success"],
                 ["Warnings", result.validation.warnings, "text-warning"],
-                ["Failed", result.validation.failed, "text-[#C98A8A]"],
+                ["Failed", result.validation.failed, "text-risk"],
               ] as const
             ).map(([label, value, cls]) => (
               <div key={label} className="px-4 first:pl-0">
@@ -179,6 +180,94 @@ function UploadForm({ onUploaded }: { onUploaded: () => void }) {
             ))}
           </div>
         </div>
+      ) : null}
+    </Card>
+  );
+}
+
+function RegisterBankForm() {
+  const { retry, setBankId } = useBank();
+  const [name, setName] = useState("");
+  const [segment, setSegment] = useState<BankSegment>("private");
+  const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setMessage(null);
+    if (!name.trim()) {
+      setError("Enter the institution's name.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const bank = await api.createBank(name.trim(), segment);
+      setMessage(`${bank.name} registered — now upload its annual report above.`);
+      setName("");
+      retry(); // refresh the global bank list
+      setBankId(bank.id);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Card className="p-7">
+      <SectionLabel className="mb-2">Institution not listed?</SectionLabel>
+      <p className="mb-5 text-xs text-text-secondary">
+        Register any bank and upload its filings — all analytics apply
+        automatically once its first document is processed.
+      </p>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-[10px] uppercase tracking-[0.25em] text-bronze">
+            Institution Name
+          </label>
+          <input
+            type="text"
+            value={name}
+            placeholder="e.g. Saurashtra Gramin Bank"
+            onChange={(e) => setName(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-[10px] uppercase tracking-[0.25em] text-bronze">
+            Category
+          </label>
+          <select
+            className={`sovereign-select ${inputClass} pr-8`}
+            value={segment}
+            onChange={(e) => setSegment(e.target.value as BankSegment)}
+          >
+            {SEGMENT_ORDER.map((s) => (
+              <option key={s} value={s}>
+                {SEGMENT_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full border border-border px-4 py-2.5 text-xs uppercase tracking-[0.25em] text-text-secondary transition-colors hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {submitting ? "Registering…" : "Register Institution"}
+        </button>
+      </form>
+      {error ? (
+        <p className="mt-4 border border-risk/50 bg-risk/10 px-4 py-3 text-xs text-risk">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="mt-4 border border-success/40 bg-success/10 px-4 py-3 text-xs text-success">
+          {message}
+        </p>
       ) : null}
     </Card>
   );
@@ -273,8 +362,11 @@ export default function DocumentsPage() {
           )}
         </Card>
 
-        {/* Upload form */}
-        <UploadForm onUploaded={docsState.retry} />
+        {/* Upload + registration */}
+        <div className="space-y-6">
+          <UploadForm onUploaded={docsState.retry} />
+          <RegisterBankForm />
+        </div>
       </div>
     </>
   );

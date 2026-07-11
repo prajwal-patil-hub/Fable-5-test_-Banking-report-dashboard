@@ -5,36 +5,22 @@ import sys
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 
-@pytest.fixture()
-def client(db, monkeypatch):
-    from app import main
-    from app.core import db as core_db
-
-    monkeypatch.setattr(core_db, "SessionLocal", lambda: db)
-
-    def override_get_db():
-        yield db
-
-    main.app.dependency_overrides[core_db.get_db] = override_get_db
-
-    from app.seeds.demo import seed_demo
-    seed_demo(db)
-
-    with TestClient(main.app, raise_server_exceptions=True) as c:
-        yield c
-    main.app.dependency_overrides.clear()
+def _demo_bank_id(client) -> int:
+    banks = client.get("/api/banks").json()["banks"]
+    return next(b["id"] for b in banks if b["is_demo"])
 
 
 def test_banks_years_kpis(client):
     banks = client.get("/api/banks").json()["banks"]
-    assert len(banks) >= 4 and all(b["is_demo"] for b in banks)
+    assert len(banks) >= 40  # Indian roster + demo institutions
+    demo = [b for b in banks if b["is_demo"]]
+    assert len(demo) == 4 and all(b["has_data"] for b in demo)
 
-    bank_id = banks[0]["id"]
+    bank_id = demo[0]["id"]
     years = client.get(f"/api/banks/{bank_id}/years").json()["fiscal_years"]
     assert years == ["FY2023", "FY2024", "FY2025"]
 
@@ -48,7 +34,7 @@ def test_banks_years_kpis(client):
 
 
 def test_history_benchmarking_narrative_validations(client):
-    bank_id = client.get("/api/banks").json()["banks"][0]["id"]
+    bank_id = _demo_bank_id(client)
 
     hist = client.get(f"/api/banks/{bank_id}/kpis/pat/history").json()
     assert [p["fiscal_year"] for p in hist["series"]] == ["FY2023", "FY2024", "FY2025"]
@@ -80,7 +66,7 @@ def test_document_upload_roundtrip(client, tmp_path):
     pdf_path = tmp_path / "pinnacle_fy2025.pdf"
     make_sample_pdf.build(str(pdf_path))
 
-    bank_id = client.get("/api/banks").json()["banks"][0]["id"]
+    bank_id = _demo_bank_id(client)
     resp = client.post(
         "/api/documents/upload",
         data={"bank_id": bank_id, "doc_type": "annual_report", "fiscal_year": "FY2026"},
@@ -116,7 +102,7 @@ def test_document_upload_roundtrip(client, tmp_path):
 
 
 def test_exports_produce_valid_files(client):
-    bank_id = client.get("/api/banks").json()["banks"][0]["id"]
+    bank_id = _demo_bank_id(client)
     params = {"bank_id": bank_id, "fiscal_year": "FY2025"}
 
     excel = client.get("/api/exports/excel", params=params)

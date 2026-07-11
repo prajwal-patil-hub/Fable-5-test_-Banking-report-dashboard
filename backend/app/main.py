@@ -13,13 +13,17 @@ from app.api.routes import router
 from app.core.config import settings
 from app.core.db import Base, SessionLocal, engine
 from app.seeds.demo import seed_demo
+from app.seeds.roster import seed_indian_roster
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(engine)
-    if settings.seed_demo_data:
-        with SessionLocal() as db:
+    with SessionLocal() as db:
+        # Indian scheduled-commercial-bank roster (institutions only) always
+        # seeds; synthetic demo figures only when enabled.
+        seed_indian_roster(db)
+        if settings.seed_demo_data:
             seed_demo(db)
     yield
 

@@ -1,19 +1,21 @@
 @import "tailwindcss";
 
 @theme {
-  /* "Old Money" luxury banking palette */
-  --color-ink: #1a120b;
-  --color-ink-2: #2c1e16;
-  --color-card: #36251d;
-  --color-gold: #c7a56a;
-  --color-bronze: #9c7b4f;
-  --color-highlight: #d8c49a;
-  --color-success: #5e8b6f;
-  --color-warning: #b58a42;
-  --color-risk: #7a3e3e;
-  --color-text-primary: #f3eee7;
-  --color-text-secondary: #cfc3b0;
-  --color-border: #4b382f;
+  /* "Old Money — Daylight" palette, minimal edition: near-white warm
+     surfaces, one restrained gold accent, espresso text. Report-grade calm
+     rather than ornament. */
+  --color-ink: #faf8f2; /* page background (warm near-white) */
+  --color-ink-2: #f2eee3; /* sidebar / secondary surfaces */
+  --color-card: #ffffff; /* cards */
+  --color-gold: #8c6d3f; /* single restrained accent */
+  --color-bronze: #a6957c;
+  --color-highlight: #c9b48c;
+  --color-success: #44684f;
+  --color-warning: #8f6a2a;
+  --color-risk: #96403c;
+  --color-text-primary: #26221a;
+  --color-text-secondary: #7a7060;
+  --color-border: #e6dfce;
 
   --font-serif: var(--font-playfair), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
@@ -66,7 +68,7 @@ body {
   background: linear-gradient(
     90deg,
     var(--color-card) 0%,
-    rgba(67, 48, 36, 0.6) 40%,
+    rgba(230, 223, 206, 0.5) 40%,
     var(--color-card) 80%
   );
   background-size: 800px 100%;
@@ -84,13 +86,13 @@ body {
     var(--color-bronze) 70%,
     transparent
   );
-  opacity: 0.55;
+  opacity: 0.35;
 }
 
 /* Native select restyle */
 select.sovereign-select {
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23C7A56A' stroke-width='1.2'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238C6D3F' stroke-width='1.2'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.75rem center;
 }

@@ -7,12 +7,12 @@ def test_segment_filters_peer_universe(seeded_db):
     assert unfiltered["segment"] is None
 
     private = benchmark_kpi(seeded_db, "roe", "FY2025", segment="private")
-    assert len(private["peers"]) == 3  # ALBN (public) excluded
-    assert {p["bank_code"] for p in private["peers"]} == {"MRDN", "CRST", "HBRV"}
+    assert len(private["peers"]) == 3  # BHNB (public PSU) excluded
+    assert {p["bank_code"] for p in private["peers"]} == {"SVRN", "NLND", "HMGR"}
     assert private["segment"] == "private"
 
     public = benchmark_kpi(seeded_db, "roe", "FY2025", segment="public")
-    assert [p["bank_code"] for p in public["peers"]] == ["ALBN"]
+    assert [p["bank_code"] for p in public["peers"]] == ["BHNB"]
     assert public["peers"][0]["rank"] == 1 and public["peers"][0]["percentile"] == 100.0
 
 
