@@ -24,10 +24,17 @@ class Settings(BaseSettings):
     #   ollama              — local model, no API key, no extra deps
     #                         (SOVEREIGN_LLM_PROVIDER=ollama; model pulled via `ollama pull`)
     llm_extraction_enabled: bool = False
-    llm_provider: str = "anthropic"  # anthropic | ollama
+    # anthropic | ollama | openai_compatible
+    #   ollama            — local model (e.g. glm4, llama3.1); no key needed
+    #   openai_compatible — any /chat/completions endpoint, e.g. Zhipu GLM:
+    #                       llm_base_url=https://open.bigmodel.cn/api/paas/v4
+    #                       llm_api_key=<GLM key>, llm_model=glm-4-plus
+    llm_provider: str = "anthropic"
     # Model id; defaults per provider when unset
     # (anthropic: claude-sonnet-5, ollama: llama3.1:8b).
     llm_model: str | None = None
+    llm_base_url: str | None = None  # openai_compatible only
+    llm_api_key: str | None = None  # openai_compatible only
     ollama_base_url: str = "http://localhost:11434"
     # Display-only conversion rate for the currency layer (INR per USD).
     # Warehouse storage is always ₹ crore; USD is computed at read time.

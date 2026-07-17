@@ -85,12 +85,12 @@ def test_ollama_provider_path(monkeypatch):
                   "quote": "GNPA printed a record low this fiscal."}  # not on page
     captured = {}
 
-    def fake_request(self, url, payload):
+    def fake_request(self, url, payload, headers=None):
         captured["url"] = url
         captured["payload"] = payload
         return {"message": {"content": json.dumps([good, fabricated])}}
 
-    monkeypatch.setattr(LlmExtractor, "_ollama_request", fake_request)
+    monkeypatch.setattr(LlmExtractor, "_post_json", fake_request)
 
     found = LlmExtractor().extract([PAGE])
     assert [c.kpi_code for c in found] == ["roe"]  # fabricated quote rejected
@@ -105,10 +105,10 @@ def test_ollama_server_down_degrades_to_nothing(monkeypatch):
 
     monkeypatch.setattr(settings, "llm_provider", "ollama")
 
-    def broken(self, url, payload):
+    def broken(self, url, payload, headers=None):
         raise OSError("connection refused")
 
-    monkeypatch.setattr(LlmExtractor, "_ollama_request", broken)
+    monkeypatch.setattr(LlmExtractor, "_post_json", broken)
     assert LlmExtractor().extract([PAGE]) == []
 
 
@@ -120,3 +120,31 @@ def test_deterministic_extraction_outranks_llm():
                           "Gross NPA stood at 5,400 crore")]
     best = resolve(table_cand + llm_cand)
     assert best["gnpa"].method == "table" and best["gnpa"].value == 5400.0
+
+
+def test_openai_compatible_provider_for_glm(monkeypatch):
+    """provider=openai_compatible (e.g. Zhipu GLM): /chat/completions shape,
+    bearer auth, same quote-verification and 0.6 cap."""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "llm_provider", "openai_compatible")
+    monkeypatch.setattr(settings, "llm_base_url", "https://open.bigmodel.cn/api/paas/v4")
+    monkeypatch.setattr(settings, "llm_api_key", "glm-test-key")
+    monkeypatch.setattr(settings, "llm_model", "glm-4-plus")
+
+    good = {"kpi_code": "roe", "value": 15.1, "unit": "%", "page": 7,
+            "quote": "Return on Equity was 15.1% for the year."}
+    captured = {}
+
+    def fake_request(self, url, payload, headers=None):
+        captured.update(url=url, payload=payload, headers=headers or {})
+        return {"choices": [{"message": {"content": json.dumps([good])}}]}
+
+    monkeypatch.setattr(LlmExtractor, "_post_json", fake_request)
+
+    found = LlmExtractor().extract([PAGE])
+    assert [c.kpi_code for c in found] == ["roe"]
+    assert found[0].confidence == 0.6
+    assert captured["url"] == "https://open.bigmodel.cn/api/paas/v4/chat/completions"
+    assert captured["payload"]["model"] == "glm-4-plus"
+    assert captured["headers"]["Authorization"] == "Bearer glm-test-key"

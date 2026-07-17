@@ -63,6 +63,27 @@ Watch extraction → unit normalisation → derived KPIs → validation run, the
 open the bank's dashboard for the new fiscal year and download the exports
 from the Reports page.
 
+## Persistent storage with Supabase (or any PostgreSQL)
+
+By default Sovereign uses a local SQLite file. To keep uploaded data
+permanently in the cloud, point it at a Supabase project (Supabase is
+hosted PostgreSQL — the backend supports it natively):
+
+```bash
+cd backend && .venv/bin/pip install -e ".[postgres]"   # psycopg driver, once
+
+# Supabase dashboard → Project Settings → Database → Connection string (URI).
+# Replace the postgres:// prefix with postgresql+psycopg://
+export SOVEREIGN_DATABASE_URL="postgresql+psycopg://postgres.<ref>:<PASSWORD>@aws-0-<region>.pooler.supabase.com:5432/postgres"
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+First boot creates all tables and seeds the Indian roster + demo banks in
+Supabase; everything you upload persists across restarts, upgrades and
+machines. (Version upgrades that change the schema need a migration or a
+fresh database — SQLite's delete-to-reseed shortcut also applies here only
+if you accept losing data.)
+
 ## Optional: local LLM fallback with Ollama (great on a MacBook)
 
 The deterministic extractors handle standard annual reports on their own. For
@@ -81,6 +102,20 @@ export SOVEREIGN_LLM_PROVIDER=ollama
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
+**Using GLM instead:** two ways.
+Local GLM on Apple Silicon (free, offline): `ollama pull glm4` then set
+`SOVEREIGN_LLM_PROVIDER=ollama SOVEREIGN_LLM_MODEL=glm4` (~6 GB RAM; on an
+8 GB Mac prefer the cloud route). Zhipu GLM cloud API:
+
+```bash
+export SOVEREIGN_LLM_EXTRACTION_ENABLED=true
+export SOVEREIGN_LLM_PROVIDER=openai_compatible
+export SOVEREIGN_LLM_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+export SOVEREIGN_LLM_API_KEY=<your GLM key>
+export SOVEREIGN_LLM_MODEL=glm-4-flash        # or glm-4-plus
+```
+
+The `openai_compatible` provider works with any /chat/completions endpoint.
 To use Claude instead: `pip install -e ".[llm]"`, set `ANTHROPIC_API_KEY`,
 and leave `SOVEREIGN_LLM_PROVIDER=anthropic`. All knobs are documented in
 `backend/.env.example`.

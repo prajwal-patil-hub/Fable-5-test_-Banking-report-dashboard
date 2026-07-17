@@ -184,6 +184,7 @@ class LlmExtractor:
 
     ANTHROPIC_DEFAULT_MODEL = "claude-sonnet-5"
     OLLAMA_DEFAULT_MODEL = "llama3.1:8b"
+    OPENAI_COMPAT_DEFAULT_MODEL = "glm-4-flash"  # Zhipu GLM's economical tier
 
     def __init__(self, client=None, model: str | None = None):
         # client injectable for tests; lazily built from the anthropic SDK
@@ -206,17 +207,20 @@ class LlmExtractor:
             return self._model
         if settings.llm_model:
             return settings.llm_model
-        return (self.OLLAMA_DEFAULT_MODEL if settings.llm_provider == "ollama"
-                else self.ANTHROPIC_DEFAULT_MODEL)
+        if settings.llm_provider == "ollama":
+            return self.OLLAMA_DEFAULT_MODEL
+        if settings.llm_provider == "openai_compatible":
+            return self.OPENAI_COMPAT_DEFAULT_MODEL
+        return self.ANTHROPIC_DEFAULT_MODEL
 
-    def _ollama_request(self, url: str, payload: dict) -> dict:
-        """One POST to the local Ollama server (stdlib HTTP; seam for tests).
+    def _post_json(self, url: str, payload: dict, headers: dict | None = None) -> dict:
+        """One JSON POST (stdlib HTTP; the seam tests monkeypatch).
         Local models are slow on first token — generous timeout."""
         import urllib.request
         req = urllib.request.Request(
             url, data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=300) as resp:  # noqa: S310 — localhost
+            headers={"Content-Type": "application/json", **(headers or {})})
+        with urllib.request.urlopen(req, timeout=300) as resp:  # noqa: S310
             return json.loads(resp.read().decode())
 
     def _complete_ollama(self, prompt: str, settings) -> str | None:
@@ -227,15 +231,37 @@ class LlmExtractor:
             "format": "json",  # constrain local models to valid JSON
             "options": {"temperature": 0},
         }
-        data = self._ollama_request(
+        data = self._post_json(
             f"{settings.ollama_base_url.rstrip('/')}/api/chat", payload)
         return (data.get("message") or {}).get("content")
+
+    def _complete_openai_compatible(self, prompt: str, settings) -> str | None:
+        """Any /chat/completions endpoint — e.g. Zhipu GLM
+        (https://open.bigmodel.cn/api/paas/v4, model glm-4-plus)."""
+        if not settings.llm_base_url:
+            return None
+        payload = {
+            "model": self._resolve_model(settings),
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0,
+            "stream": False,
+        }
+        headers = ({"Authorization": f"Bearer {settings.llm_api_key}"}
+                   if settings.llm_api_key else {})
+        data = self._post_json(
+            f"{settings.llm_base_url.rstrip('/')}/chat/completions", payload, headers)
+        choices = data.get("choices") or []
+        if not choices:
+            return None
+        return (choices[0].get("message") or {}).get("content")
 
     def _complete(self, prompt: str) -> str | None:
         from app.core.config import settings
         # An injected client (tests) always wins; otherwise route by provider.
         if self._client is None and settings.llm_provider == "ollama":
             return self._complete_ollama(prompt, settings)
+        if self._client is None and settings.llm_provider == "openai_compatible":
+            return self._complete_openai_compatible(prompt, settings)
         client = self._get_client()
         if client is None:
             return None
