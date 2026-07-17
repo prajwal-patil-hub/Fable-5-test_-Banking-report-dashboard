@@ -30,6 +30,17 @@ interface BankContextValue {
 
 const BankContext = createContext<BankContextValue | null>(null);
 
+const STORAGE_KEY = "sovereign.selection";
+
+function readStored(): { bankId?: number; fiscalYear?: string; currency?: Currency } {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
 export function BankProvider({ children }: { children: ReactNode }) {
   const [banks, setBanks] = useState<Bank[]>([]);
   const [bankId, setBankId] = useState<number | null>(null);
@@ -40,6 +51,25 @@ export function BankProvider({ children }: { children: ReactNode }) {
   const [loadingYears, setLoadingYears] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+
+  // Restore last selection (bank, year, currency) after hydration; the
+  // banks/years loaders below validate restored ids and fall back cleanly
+  // if they no longer exist.
+  useEffect(() => {
+    const stored = readStored();
+    if (stored.currency === "usd") setCurrency("usd");
+    if (typeof stored.bankId === "number") setBankId(stored.bankId);
+    if (typeof stored.fiscalYear === "string") setFiscalYear(stored.fiscalYear);
+  }, []);
+
+  // Persist selection so a reload (or next visit) resumes where you were.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload: Record<string, unknown> = { currency };
+    if (bankId !== null) payload.bankId = bankId;
+    if (fiscalYear) payload.fiscalYear = fiscalYear;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  }, [bankId, fiscalYear, currency]);
 
   // Load banks (once, retried via tick)
   useEffect(() => {
