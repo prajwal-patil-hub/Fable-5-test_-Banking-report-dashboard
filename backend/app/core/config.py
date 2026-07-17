@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     app_name: str = "Sovereign Banking Intelligence Platform"
     version: str = "0.1.0"
     database_url: str = "sqlite:///./sovereign.db"
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     upload_dir: str = "./uploads"
     # If set, all /api requests must carry a matching X-API-Key header.
     # Production deployments should front this with real SSO/OIDC + RBAC.
