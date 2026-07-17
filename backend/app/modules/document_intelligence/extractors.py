@@ -40,6 +40,9 @@ class PageContent:
     number: int
     text: str
     tables: list[list[list[str | None]]]  # tables -> rows -> cells
+    # Crore multiplier declared by the page's "₹ in lakh/crore/..." caption;
+    # applied to bare monetary numbers (explicit unit words override it).
+    scale_hint: float | None = None
 
 
 _SENTENCE_SPLIT = re.compile(r"(?<=[.;:])\s+")
@@ -101,7 +104,8 @@ class RuleBasedExtractor:
                     if m is None:
                         m = matches[0]
                     gap = m.start()
-                    value = normalize_value(m.group(1), m.group(2), kpi.unit)
+                    value = normalize_value(m.group(1), m.group(2), kpi.unit,
+                                            scale_hint=page.scale_hint)
                     if value is None:
                         continue
                     confidence = round(base_confidence - min(gap, 30) * 0.005, 3)
@@ -137,7 +141,8 @@ class TableExtractor:
                         if not m or not m.group(1).strip("()-,. "):
                             continue
                         unit_hint = m.group(2) or ("%" if "%" in cells[0] or "ratio" in label else "")
-                        value = normalize_value(m.group(1), unit_hint, kpi.unit)
+                        value = normalize_value(m.group(1), unit_hint, kpi.unit,
+                                                scale_hint=page.scale_hint)
                         if value is None:
                             continue
                         out.append(Candidate(code, value, page.number, self.method,

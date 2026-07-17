@@ -38,15 +38,21 @@ class IngestResult:
 
 
 def read_pdf(data: bytes) -> list[PageContent]:
-    pages: list[PageContent] = []
+    from app.modules.document_intelligence.normalize import detect_scale_hint
+
+    raw: list[tuple[int, str, list]] = []
     with pdfplumber.open(io.BytesIO(data)) as pdf:
         for i, page in enumerate(pdf.pages, start=1):
-            pages.append(PageContent(
-                number=i,
-                text=page.extract_text() or "",
-                tables=page.extract_tables() or [],
-            ))
-    return pages
+            raw.append((i, page.extract_text() or "", page.extract_tables() or []))
+
+    # Statement denomination ("₹ in lakh" etc.): a page's own caption wins;
+    # pages without one inherit the document's first declared scale, so a
+    # single front-matter caption governs the tables that follow it.
+    doc_hint = next((h for _, text, _ in raw
+                     if (h := detect_scale_hint(text)) is not None), None)
+    return [PageContent(number=i, text=text, tables=tables,
+                        scale_hint=detect_scale_hint(text) or doc_hint)
+            for i, text, tables in raw]
 
 
 def ingest_pdf(db: Session, *, data: bytes, bank_id: int, doc_type: str,

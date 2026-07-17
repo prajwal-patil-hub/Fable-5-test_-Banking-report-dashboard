@@ -177,6 +177,66 @@ RULES: list[Rule] = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Magnitude plausibility rails — catch unit/scale extraction errors.
+#
+# Grounding (official reference points): the RBI's own balance sheet is
+# ₹76.25 lakh crore (FY25 RBI Annual Report) and SBI, India's largest
+# commercial bank, is smaller still — so NO single bank figure can approach
+# ₹1,00,00,000 crore (₹100 lakh crore). Ratio bounds are set beyond every
+# observed extreme in RBI Financial Stability Report history (system GNPA
+# peak ~11.2% FY18; worst single-bank GNPA ~28%; SFB NIMs up to ~10%), so
+# they only fire on order-of-magnitude errors, never on genuine outliers.
+# ---------------------------------------------------------------------------
+
+_MONEY_CEILING_CRORE = 1e7  # ₹100 lakh crore
+
+_RATIO_BOUNDS: dict[str, tuple[float, float, str]] = {
+    "nim": (0.0, 15.0, "Net Interest Margin"),
+    "roe": (-80.0, 50.0, "Return on Equity"),
+    "roa": (-15.0, 8.0, "Return on Assets"),
+    "gnpa_ratio": (0.0, 40.0, "Gross NPA Ratio"),
+    "nnpa_ratio": (0.0, 25.0, "Net NPA Ratio"),
+    "cet1_ratio": (0.0, 40.0, "CET1 Ratio"),
+    "tier1_ratio": (0.0, 40.0, "Tier 1 Ratio"),
+    "crar": (0.0, 45.0, "CRAR"),
+    "lcr": (0.0, 500.0, "LCR"),
+    "nsfr": (0.0, 400.0, "NSFR"),
+    "deposit_growth": (-50.0, 100.0, "Deposit Growth"),
+    "loan_growth": (-50.0, 120.0, "Loan Growth"),
+}
+
+
+def _money_magnitude(v: Values, _p: Values) -> str | None:
+    from app.modules.kpi_warehouse.registry import KPI_REGISTRY
+    offenders = [
+        f"{code} (₹{val:,.0f} Cr)"
+        for code, val in v.items()
+        if val is not None
+        and (k := KPI_REGISTRY.get(code)) is not None and k.unit == "inr_crore"
+        and abs(val) > _MONEY_CEILING_CRORE
+    ]
+    if offenders:
+        return ("Implausible magnitude — exceeds ₹100 lakh crore (larger than the "
+                "RBI's entire balance sheet): " + ", ".join(offenders)
+                + ". Almost certainly a unit/denomination extraction error "
+                  "(e.g. a '₹ in lakh' statement read as crore).")
+    return None
+
+
+RULES.append(Rule("money_magnitude_plausibility",
+                  "Monetary figures within Indian banking-system magnitude", "error",
+                  (), _money_magnitude))
+
+for _code, (_lo, _hi, _label) in _RATIO_BOUNDS.items():
+    RULES.append(Rule(
+        f"plausible_{_code}",
+        f"{_label} within plausible range for Indian banks ({_lo}–{_hi}%)",
+        "warning", (_code,),
+        _percent_range(_code, _lo, _hi, _label),
+    ))
+
+
 @dataclass
 class RuleOutcome:
     rule: Rule
